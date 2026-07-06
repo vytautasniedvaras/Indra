@@ -109,6 +109,60 @@ class Region(BaseModel):
     f1: float | None = None
 
 
+class AnnotationCreate(BaseModel):
+    audio_id: str
+    t0: float
+    t1: float
+    f0: float | None = None
+    f1: float | None = None
+    label: str | None = None
+    note: str | None = None
+
+
+class AnnotationPatch(BaseModel):
+    t0: float | None = None
+    t1: float | None = None
+    f0: float | None = None
+    f1: float | None = None
+    label: str | None = None
+    note: str | None = None
+
+
+class AnnotationRecord(BaseModel):
+    id: int
+    audio_id: str
+    t0: float
+    t1: float
+    f0: float | None
+    f1: float | None
+    label: str | None
+    note: str | None
+    created_at: str
+    updated_at: str
+
+
+class UndoResponse(BaseModel):
+    applied_patch: list[dict[str, Any]]
+    scope: str
+    action_name: str
+    undo_stack_depth: int
+    redo_stack_depth: int
+
+
+class HistoryEntry(BaseModel):
+    id: int
+    ts: str
+    scope: str
+    action_name: str
+
+
+class ExportRequest(BaseModel):
+    audio_id: str
+    kinds: list[str] = Field(default_factory=list)
+    format: Literal["json", "csv"] = "json"
+    region: Region | None = None
+
+
 class AnalyzeRequest(BaseModel):
     kind: str
     audio_id: str = ""

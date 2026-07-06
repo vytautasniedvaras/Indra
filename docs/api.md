@@ -74,6 +74,24 @@ Serves a computed feature table. `key` selects a specific cached variant (from t
 for min/max buckets per column (`buckets: { <column>: { t, min, max } }`) at display width
 (§4.4). 404 if never computed or evicted.
 
+### Annotations (Phase 3; all mutations undoable)
+- `POST /annotations` — `{ audio_id, t0, t1, f0?, f1?, label?, note? }` → full record
+  `{ id, audio_id, t0, t1, f0, f1, label, note, created_at, updated_at }`. 400 if t1 < t0.
+- `GET /annotations?audio_id=…` — records ordered by t0.
+- `PATCH /annotations/{id}` — partial body of the mutable fields → updated record.
+- `DELETE /annotations/{id}` — `{ "deleted": true }`.
+
+### `POST /undo` · `POST /redo` · `GET /history` (Phase 3, §7)
+Undo/redo return `{ applied_patch: [RFC-6902 ops], scope, action_name, undo_stack_depth,
+redo_stack_depth }`; 409 `nothing_to_undo` / `nothing_to_redo` on empty stacks. Any new
+forward action invalidates the redo branch. `GET /history` → last 100
+`{ id, ts, scope, action_name }` ("Undo Add annotation" menu naming).
+
+### `POST /export` (Phase 3, §6.6)
+`{ audio_id, kinds: [feature kinds], format: "json" | "csv", region? }` → attachment
+(JSON document or zip of features.csv/annotations.csv/onsets.csv/manifest.json).
+Schema documented and versioned in docs/export_schema.md (schema_version 1).
+
 ### `GET /jobs` · `GET /jobs/{job_id}`
 Job snapshot: `{ id, kind, state, progress, message, eta_s, created_at, started_at,
 finished_at, result_ref, error }` with `state ∈ queued | running | cancelled | failed | done`.

@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 0 — Engine skeleton and ingest
+- **Current phase**: Phase 0 complete (PR #1 open) → Phase 1 — Tile serving and IndraKit client
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 (Phase 0 code complete; PR pending)
 
@@ -33,7 +33,7 @@
       the pyav fallback) — nothing binary checked in
 - [x] Coverage 81 % (gate 70); ruff + mypy --strict clean; CI green pending first push
 - [x] Phase 0 DoD verified live: `curl -N` SSE with ETA; cancel latency 0.27 s
-- [ ] Open Phase 0 PR + smoke-test issue → begin Phase 1
+- [x] Phase 0 PR opened: https://github.com/vytautasniedvaras/Indra/pull/1 (smoke test in PR body)
 
 ## Deviations from BUILD_SPEC.md
 
@@ -50,7 +50,9 @@
 
 ## Blockers / waiting on user
 
-(none)
+- **GitHub Actions locked (billing)** — issue #2. CI cannot run until the user fixes
+  github.com/settings/billing. NOT blocking development: all CI steps run locally before
+  each push. Once unlocked, re-run the PR #1 workflow.
 
 ## Notes for the next session
 

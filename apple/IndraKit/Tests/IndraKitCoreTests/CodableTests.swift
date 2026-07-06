@@ -83,6 +83,78 @@ struct CodableTests {
         #expect(back == state)
     }
 
+    @Test func annotationRecordDecodesSnakeCase() throws {
+        let json = """
+            {"id": 7, "audio_id": "abc", "t0": 0.5, "t1": 1.5, "f0": null, "f1": null,
+             "label": null, "note": "interesting", "created_at": "2026-07-06T09:00:00Z",
+             "updated_at": "2026-07-06T09:30:00Z"}
+            """
+        let record = try IndraJSON.decoder().decode(AnnotationRecord.self, from: Data(json.utf8))
+        #expect(record.id == 7)
+        #expect(record.audioId == "abc")
+        #expect(record.f0 == nil)
+        #expect(record.note == "interesting")
+        #expect(record.updatedAt == "2026-07-06T09:30:00Z")
+        // Local editor-state mirror keeps the server id as a string.
+        #expect(record.asAnnotation.id == "7")
+        #expect(record.asAnnotation.audioId == "abc")
+    }
+
+    @Test func annotationRecordRoundTrip() throws {
+        let record = AnnotationRecord(
+            id: 3, audioId: "a", t0: 1, t1: 2, f0: 100, f1: 200, label: "bird",
+            note: nil, createdAt: "t0", updatedAt: "t1")
+        let data = try IndraJSON.encoder().encode(record)
+        let back = try IndraJSON.decoder().decode(AnnotationRecord.self, from: data)
+        #expect(back == record)
+    }
+
+    @Test func annotationCreateEncodesSnakeCaseAndOmitsNil() throws {
+        let create = AnnotationCreate(audioId: "abc", t0: 1, t1: 2, label: "x")
+        let text = String(decoding: try IndraJSON.encoder().encode(create), as: UTF8.self)
+        #expect(text.contains("\"audio_id\":\"abc\""))
+        #expect(!text.contains("note"))  // nil optionals stay off the wire
+        #expect(!text.contains("f0"))
+    }
+
+    @Test func annotationPatchRoundTripKeepsOnlySetFields() throws {
+        let patch = AnnotationPatch(t0: 2.5, label: "owl")
+        let data = try IndraJSON.encoder().encode(patch)
+        let back = try IndraJSON.decoder().decode(AnnotationPatch.self, from: data)
+        #expect(back == patch)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(object?.count == 2)
+    }
+
+    @Test func undoResponseDecodesSnakeCase() throws {
+        let json = """
+            {"applied_patch": [{"op": "add", "path": "/annotations/0",
+                                "value": {"label": "bird"}}],
+             "scope": "annotations", "action_name": "Delete annotation",
+             "undo_stack_depth": 4, "redo_stack_depth": 2}
+            """
+        let response = try IndraJSON.decoder().decode(UndoResponse.self, from: Data(json.utf8))
+        #expect(response.actionName == "Delete annotation")
+        #expect(response.undoStackDepth == 4)
+        #expect(response.redoStackDepth == 2)
+        if case .object(let op)? = response.appliedPatch.first {
+            #expect(op["op"]?.stringValue == "add")
+        } else {
+            Issue.record("expected a patch-op object")
+        }
+    }
+
+    @Test func historyEntryDecodesSnakeCase() throws {
+        let json = """
+            {"id": 42, "ts": "2026-07-06T10:00:00Z", "scope": "annotations",
+             "action_name": "Edit annotation"}
+            """
+        let entry = try IndraJSON.decoder().decode(HistoryEntry.self, from: Data(json.utf8))
+        #expect(entry.id == 42)
+        #expect(entry.scope == "annotations")
+        #expect(entry.actionName == "Edit annotation")
+    }
+
     @Test func jsonValueRoundTrip() throws {
         let value = JSONValue.object([
             "steps": .number(20), "label": .string("x"), "flag": .bool(true),

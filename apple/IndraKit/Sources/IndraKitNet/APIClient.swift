@@ -117,6 +117,39 @@ public struct APIClient: Sendable {
         return try await tile(path: "/files/\(audioId)/spec/tile", query: query)
     }
 
+    public func annotations(audioId: String) async throws -> [AnnotationRecord] {
+        try await get("/annotations", query: [("audio_id", audioId)])
+    }
+
+    public func createAnnotation(_ create: AnnotationCreate) async throws -> AnnotationRecord {
+        try await send("/annotations", method: "POST", body: create)
+    }
+
+    public func updateAnnotation(id: Int, _ patch: AnnotationPatch) async throws
+        -> AnnotationRecord
+    {
+        try await send("/annotations/\(id)", method: "PATCH", body: patch)
+    }
+
+    /// DELETE answers 204 (or 200); any success body is ignored.
+    public func deleteAnnotation(id: Int) async throws {
+        let (data, info) = try await transport.send(
+            makeRequest(path: "/annotations/\(id)", method: "DELETE"))
+        guard (200..<300).contains(info.statusCode) else { throw apiError(data, info) }
+    }
+
+    public func undo() async throws -> UndoResponse {
+        try await post("/undo", body: nil)
+    }
+
+    public func redo() async throws -> UndoResponse {
+        try await post("/redo", body: nil)
+    }
+
+    public func history() async throws -> [HistoryEntry] {
+        try await get("/history")
+    }
+
     /// SSE job progress stream. Terminating the consumer before a terminal
     /// event arrives cancels the backend job (BUILD_SPEC §4.5, §5.6).
     public func jobEvents(id jobId: String) -> AsyncThrowingStream<JobEvent, Error> {
@@ -199,6 +232,15 @@ public struct APIClient: Sendable {
         return try decode(data, info)
     }
 
+    private func send<Body: Encodable, T: Decodable>(
+        _ path: String, method: String, body: Body
+    ) async throws -> T {
+        let payload = try IndraJSON.encoder().encode(body)
+        let (data, info) = try await transport.send(
+            makeRequest(path: path, method: method, body: payload))
+        return try decode(data, info)
+    }
+
     private func tile(path: String, query: [(String, String)]) async throws -> TileResponse {
         let (data, info) = try await transport.send(
             makeRequest(path: path, method: "GET", query: query))
@@ -228,4 +270,11 @@ public struct APIClient: Sendable {
             statusCode: info.statusCode, code: "http_\(info.statusCode)",
             message: String(decoding: data.prefix(200), as: UTF8.self))
     }
+}
+
+/// DocumentStore's backend sync surface (BUILD_SPEC §7.2) maps directly onto
+/// the annotation and undo endpoints.
+extension APIClient: AnnotationSyncing {
+    public func undoRemote() async throws -> UndoResponse { try await undo() }
+    public func redoRemote() async throws -> UndoResponse { try await redo() }
 }

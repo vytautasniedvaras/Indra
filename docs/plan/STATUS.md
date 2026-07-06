@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 3 — backend done (annotations/undo/export); Swift mirror in flight
+- **Current phase**: Phase 3 COMPLETE (data path DoD verified at 1-hour scale) → Phase 4 — Native UI
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -91,9 +91,15 @@
       recycled id corrupt patch identity (caught by the redo-invalidation test)
 - [x] Export §6.6: JSON document + CSV zip (features.csv on densest grid, annotations.csv,
       onsets.csv, manifest.json); region slicing; docs/export_schema.md (schema_version 1)
-- [ ] Swift mirror (DocumentStore, annotation/undo/history APIClient endpoints) — background
-      agent in flight; verify via CI when it lands
-- [ ] Phase 3 DoD wrap: full data path demo on a 1-hour file; update PR #1
+- [x] Swift mirror (DocumentStore w/ drag coalescing + sync routing, annotation/undo/history
+      APIClient endpoints, 29 new tests) — built by a parallel agent, CI green
+- [x] Phase 3 DoD verified on the 1-hour reference noisescape (44.1 kHz, 3 workers):
+      import 46 s (target ≤90 s) · all five analyses concurrently 250 s wall
+      (onsets+roughness 75 s, novelty 87 s, entropy 119 s, harmonicity 250 s) ·
+      annotate + undo/redo OK · export 5 s → 58 MB JSON (155k roughness pts, 722k onset-env
+      pts, 4k novelty pts, annotations, onsets) · backend RSS 221 MB (budget: ≤1.5 GB)
+      — the guiding project's data path is complete end-to-end via API.
+      Remaining DoD element (minimal SwiftUI harness view) is Mac-side → SMOKE_TESTS/Phase 4.
 
 ## Deviations from BUILD_SPEC.md
 

@@ -22,7 +22,7 @@ public struct TileKey: Hashable, Sendable {
     }
 }
 
-public struct Tile: Sendable {
+public struct Tile: Sendable, Equatable {
     public var data: Data
     public var shape: [Int]
     public var dtype: String

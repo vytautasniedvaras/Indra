@@ -7,7 +7,15 @@
 
 - **Current phase**: Phase 4 — Native UI (harness app + audition + render math done; Metal canvas next)
 - **Branch**: `claude/fable-research-implementation-8z004i`
-- **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
+- **Last updated**: 2026-07-06 late (Phase 4 in progress; strategy shift — see note below)
+
+## STRATEGY NOTE (2026-07-06, user directive)
+
+The user loses access to the current (strong) model before their next Mac session. Priorities
+until then: finish ALL architecturally hard work (Metal renderer written completely, even
+though unverifiable here), run deep review passes, and leave documentation
+(docs/architecture.md + this file + SMOKE_TESTS.md) good enough that a weaker model or the
+user can handle compile fixes and verification mechanically. Mac-dependent items stay queued.
 
 ## Process (agreed with user 2026-07-06)
 
@@ -55,12 +63,9 @@
       coalescing — all Linux-tested
 - [x] dev/api_probe.html throwaway probe + apple/README.md build steps
 - [x] CI green for backend + indrakit jobs (run 28812887031, after user's GitHub Pro upgrade)
-- [ ] **Perf follow-up (corrected)**: the earlier 35 s reading was a measurement artifact
-      (an SSE curl blocked inside the timed shell window). Clean measurement: 3.25 s for the
-      90 s file end-to-end through the live server; profiled stages: probe+hash+waveform 0.1 s,
-      STFT pyramid 2.35 s. Projection for 1-hour stereo ≈ 4 min single-worker vs the §6.2
-      target of ≤90 s at 4 workers → needs ~3x: parallelize STFT blocks across the pool
-      (or per-stage jobs). Do when the 1-hour reference file testing starts (Phase 2).
+- [x] **Perf follow-up CLOSED by measurement**: the 1-hour reference import completed in
+      46 s single-worker (target ≤90 s at 4 workers) — the earlier ~4 min projection from the
+      90 s file over-extrapolated per-file fixed costs. No parallelization needed.
 
 ## Phase 2 task checklist
 

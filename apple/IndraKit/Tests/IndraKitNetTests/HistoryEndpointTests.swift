@@ -117,7 +117,7 @@ struct HistoryEndpointTests {
     @Test func redoOnEmptyStackIsConflict() async throws {
         let transport = MockTransport()
         transport.stub("POST", "/redo",
-            json: "{\"error\": {\"code\": \"conflict\", \"message\": \"nothing to redo\", \"details\": {}}}",
+            json: "{\"error\": {\"code\": \"nothing_to_redo\", \"message\": \"redo stack is empty\", \"details\": {}}}",
             status: 409)
         let client = makeClient(transport)
         do {
@@ -125,7 +125,7 @@ struct HistoryEndpointTests {
             Issue.record("expected APIError")
         } catch let error as APIError {
             #expect(error.statusCode == 409)
-            #expect(error.code == "conflict")
+            #expect(error.code == "nothing_to_redo")
         }
     }
 

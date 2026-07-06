@@ -43,10 +43,14 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
         streamStaysOpen = staysOpen
     }
 
-    var requests: [URLRequest] {
+    private func withLock<R>(_ body: () -> R) -> R {
         lock.lock()
         defer { lock.unlock() }
-        return recorded
+        return body()
+    }
+
+    var requests: [URLRequest] {
+        withLock { recorded }
     }
 
     func requestPaths() -> [String] {
@@ -54,11 +58,10 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPResponseInfo) {
-        lock.lock()
-        recorded.append(request)
-        let key = "\(request.httpMethod ?? "GET") \(request.url?.path ?? "")"
-        let stub = stubs[key]
-        lock.unlock()
+        let stub = withLock {
+            recorded.append(request)
+            return stubs["\(request.httpMethod ?? "GET") \(request.url?.path ?? "")"]
+        }
         guard let stub else {
             return (
                 Data("{\"error\":{\"code\":\"not_found\",\"message\":\"no stub\",\"details\":{}}}".utf8),
@@ -71,11 +74,10 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
     func stream(_ request: URLRequest) async throws -> (
         AsyncThrowingStream<Data, Error>, HTTPResponseInfo
     ) {
-        lock.lock()
-        recorded.append(request)
-        let chunks = streamChunks
-        let staysOpen = streamStaysOpen
-        lock.unlock()
+        let (chunks, staysOpen) = withLock {
+            recorded.append(request)
+            return (streamChunks, streamStaysOpen)
+        }
         let stream = AsyncThrowingStream<Data, Error> { continuation in
             for chunk in chunks {
                 continuation.yield(Data(chunk.utf8))

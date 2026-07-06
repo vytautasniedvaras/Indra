@@ -21,13 +21,14 @@ tracks completion only.
 - [x] Streaming vs full STFT equivalence test (§6.3) green — riskiest correctness assumption
       (bit-identical; also proven for the bespoke pyav-path streamer)
 - [x] `/spec/tile` and `/waveform/tile` binary endpoints with `X-Indra-Tile-*` headers
-- [ ] `IndraKit` package: `IndraKitCore`, `IndraKitNet`, `IndraKitAppleGlue`
-- [ ] `APIClient` (URLSession + FoundationNetworking gate) covering every endpoint
-- [ ] SSE parser → `AsyncThrowingStream<SSEEvent, Error>`
-- [ ] `TileCache`, `EditorState`, reducer, undo stack — Linux-tested (swift-testing)
-- [ ] GitHub Actions CI green: `backend` + `indrakit`
-- [ ] **DoD**: `dev/api_probe.html` renders waveform + spectrogram tile from a real ingested
-      file; Swift tests pass in `swift:6.2-noble`
+- [x] `IndraKit` package: `IndraKitCore`, `IndraKitNet`, `IndraKitAppleGlue`
+- [x] `APIClient` (URLSession + FoundationNetworking gate) covering every endpoint
+- [x] SSE parser → `AsyncThrowingStream<SSEEvent, Error>` (byte-level, CRLF-safe)
+- [x] `TileCache`, `EditorState`, reducer, undo stack — Linux-tested (swift-testing, 47 tests)
+- [x] GitHub Actions CI green: `backend` + `indrakit`
+- [x] **DoD**: `dev/api_probe.html` renders waveform + spectrogram tiles from a real ingested
+      file (tile-serving path itself demo-verified end-to-end over HTTP); Swift tests pass
+      in `swift:6.2-noble`
 
 ## Phase 2 — On-demand analyses and MPT
 

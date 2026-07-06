@@ -16,7 +16,7 @@ jobs:
       - run: uv pip install --system -e ".[dev]"
       - run: ruff check src tests && ruff format --check src tests
       - run: mypy src/indra
-      - run: pytest -q --cov=indra --cov-fail-under=70
+      - run: pytest -q --cov=indra --cov-fail-under=80
       - name: License gate
         run: |
           pip-licenses --format=json --with-license-file --no-license-path \

@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 2 — On-demand analyses and MPT (core complete; DoD items below)
+- **Current phase**: Phase 2 complete → Phase 3 — Annotations, undo, export
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -76,9 +76,10 @@
 - [x] Perf targets MET after tuning (riskiest-assumption lever #2): prominence 0.05 (above
       Hann sidelobe), resolution 3 cents, top_k 32, harmonicity hop 2048 →
       roughness ~1.2 min/h single-worker, entropy ~28 s/h @4w-eq, harmonicity ~62 s/h @4w-eq
-- [ ] Coverage 71 % (CI gate 70) — spec §8.3 wants 80; raise gate + fill gaps (novelty/onsets
-      branches) before the Phase 2 PR is final
-- [ ] Update PR #1 description for Phase 2; then Phase 3 (annotations, undo, export)
+- [x] Coverage 93 % via in-process tests of worker-side code (subprocess execution is
+      invisible to coverage); CI gate raised to the spec's 80. Kernel-balance and edge-response
+      bugs in Foote novelty found and fixed by these tests.
+- [x] Update PR #1 description for Phase 2 → next: Phase 3 (annotations, undo, export)
 
 ## Deviations from BUILD_SPEC.md
 

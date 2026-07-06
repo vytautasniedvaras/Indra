@@ -74,12 +74,16 @@ def _feature_frames(
 
 
 def _checkerboard_kernel(half: int) -> NDArray[np.float64]:
-    """Gaussian-tapered checkerboard kernel (Foote 2000; libfmp C4 reference)."""
+    """Gaussian-tapered checkerboard kernel (Foote 2000; libfmp C4 reference).
+
+    sign(axis) zeroes the center row/column, so the +/- quadrants balance
+    exactly (kernel sums to 0 — no response on homogeneous regions).
+    """
     size = 2 * half + 1
     axis = np.arange(-half, half + 1)
     taper = np.exp(-((axis / (half / 2.0 + 1e-9)) ** 2))
     gaussian = np.outer(taper, taper)
-    signs = np.outer(np.sign(axis + 0.5), np.sign(axis + 0.5))
+    signs = np.outer(np.sign(axis), np.sign(axis))
     kernel = gaussian * signs
     kernel /= np.abs(kernel).sum() or 1.0
     assert kernel.shape == (size, size)
@@ -94,6 +98,11 @@ def _novelty_from_ssm(ssm: NDArray[np.float64], half: int) -> NDArray[np.float32
     for i in range(n):
         window = padded[i : i + 2 * half + 1, i : i + 2 * half + 1]
         novelty[i] = float((window * kernel).sum())
+    # Zero-padded edges produce spurious response; a boundary cannot be
+    # measured within half a kernel of the ends anyway.
+    edge = min(half, n // 2)
+    novelty[:edge] = 0.0
+    novelty[n - edge :] = 0.0
     return np.clip(novelty, 0.0, None)
 
 

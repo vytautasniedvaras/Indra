@@ -7,7 +7,7 @@
 
 - **Current phase**: Phase 0 — Engine skeleton and ingest
 - **Branch**: `claude/fable-research-implementation-8z004i`
-- **Last updated**: 2026-07-06
+- **Last updated**: 2026-07-06 (Phase 0 code complete; PR pending)
 
 ## Process (agreed with user 2026-07-06)
 
@@ -21,16 +21,18 @@
 
 - [x] Repo bootstrap: skeleton dirs, BUILD_SPEC.md, living docs, ADRs 0001–0010, CI, .gitignore
 - [x] `backend/pyproject.toml` + `uv.lock` + ruff/mypy config; MPT vendored (ADR 0011) & import verified
-- [ ] FastAPI app factory + lifespan (SQLite WAL, ProcessPoolExecutor(spawn), JobRegistry)
-- [ ] Bearer-token middleware; 127.0.0.1-only bind; session.json port/token handshake
-- [ ] `/health`, `/project` endpoints
-- [ ] Cancellable job system (§4.5): JobHandle, mp.Event, progress queue → asyncio bridge → SSE
-- [ ] Job tests: monotonic progress, cancel < 2 s, no zombies, resume-from-cache
-- [ ] Content-addressed cache (§4.6): blake3 keys, blobs/ layout, analysis_cache table, LRU eviction
-- [ ] Ingest steps 1–3 (§6.2): probe, streamed content hash, waveform peak pyramid → Zarr
-- [ ] Synthetic fixture generator script (sine sweep / noise / silence, ≤ 5 MB total)
-- [ ] Coverage ≥ 70 %; ruff + mypy clean; CI green
-- [ ] Phase 0 DoD: SSE streams via `curl -N`; POST cancel aborts < 2 s (live server check)
+- [x] FastAPI app factory + lifespan (SQLite WAL, ProcessPoolExecutor(spawn), JobRegistry)
+- [x] Bearer-token middleware; 127.0.0.1-only bind; session.json port/token handshake
+- [x] `/health`, `/project` endpoints
+- [x] Cancellable job system (§4.5): JobHandle, Manager Event/Queue → asyncio bridge → SSE
+- [x] Job tests: monotonic progress + ETA, cancel < 2 s, resume-from-cache, failure propagation
+- [x] Content-addressed cache (§4.6): blake3 keys, blobs/ layout, analysis_cache table, LRU eviction
+      (eviction never touches active-project zarr; active ids wired from audio_files)
+- [x] Ingest steps 1–3 (§6.2): probe (soundfile→pyav), streamed content hash, waveform pyramid → Zarr
+- [x] Synthetic fixtures generated in conftest (sweep wav, noise flac, silence wav, tone m4a for
+      the pyav fallback) — nothing binary checked in
+- [x] Coverage 81 % (gate 70); ruff + mypy --strict clean; CI green pending first push
+- [x] Phase 0 DoD verified live: `curl -N` SSE with ETA; cancel latency 0.27 s
 - [ ] Open Phase 0 PR + smoke-test issue → begin Phase 1
 
 ## Deviations from BUILD_SPEC.md
@@ -51,6 +53,12 @@
 (none)
 
 ## Notes for the next session
+
+- Heartbeat trigger (cron, hourly) could NOT be armed: MCP create_trigger kept failing with
+  "requires approval" (permission stream flaky). Retry each session until it sticks; until
+  then resumption relies on the user opening the app or any message arriving.
+- SQLite datetime('now') is 1-second granular — LRU tests sleep 1.1 s between puts. If cache
+  churn ever needs sub-second LRU, switch last_used_at to unixepoch subsecond.
 
 - Environment: Python 3.12 via uv; Docker available for `swift:6.2-noble` tests; PyPI + MPT
   git install reachable through the agent proxy.

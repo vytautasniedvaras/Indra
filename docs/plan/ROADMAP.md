@@ -5,14 +5,15 @@ tracks completion only.
 
 ## Phase 0 — Engine skeleton and ingest
 
-- [ ] Backend project scaffolding (`pyproject.toml`, `uv.lock`, ruff + mypy)
-- [ ] FastAPI app: `/health`, `/project`, `/files/import`, `/files`; lifespan-managed SQLite +
+- [x] Backend project scaffolding (`pyproject.toml`, `uv.lock`, ruff + mypy)
+- [x] FastAPI app: `/health`, `/project`, `/files/import`, `/files`; lifespan-managed SQLite +
       ProcessPoolExecutor + JobRegistry
-- [ ] Bearer-token middleware
-- [ ] Cancellable job system (§4.5) with SSE progress endpoint, tested via httpx streaming
-- [ ] Ingest steps 1–3: probe, content hash, waveform peak pyramid
-- [ ] pytest coverage ≥ 70 %; job cancellation test green
-- [ ] **DoD**: `curl -N …/jobs/{id}/events` streams progress; POST cancel aborts within 2 s
+- [x] Bearer-token middleware
+- [x] Cancellable job system (§4.5) with SSE progress endpoint, tested via httpx streaming
+- [x] Ingest steps 1–3: probe, content hash, waveform peak pyramid
+- [x] pytest coverage ≥ 70 % (81 %); job cancellation test green
+- [x] **DoD**: `curl -N …/jobs/{id}/events` streams progress; POST cancel aborts within 2 s
+      (verified live: 0.27 s)
 
 ## Phase 1 — Tile serving and IndraKit client
 

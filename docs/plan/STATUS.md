@@ -7,7 +7,7 @@
 
 - **Current phase**: Phase 1 — Tile serving and IndraKit client (backend half done)
 - **Branch**: `claude/fable-research-implementation-8z004i`
-- **Last updated**: 2026-07-06 (Phase 0 code complete; PR pending)
+- **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
 ## Process (agreed with user 2026-07-06)
 
@@ -68,9 +68,7 @@
 
 ## Blockers / waiting on user
 
-- **GitHub Actions locked (billing)** — issue #2. CI cannot run until the user fixes
-  github.com/settings/billing. NOT blocking development: all CI steps run locally before
-  each push. Once unlocked, re-run the PR #1 workflow.
+(none — CI unlocked by the user's GitHub Pro upgrade on 2026-07-06; issue #2 can be closed)
 
 ## Notes for the next session
 

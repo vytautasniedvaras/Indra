@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 2 complete → Phase 3 — Annotations, undo, export
+- **Current phase**: Phase 3 — backend done (annotations/undo/export); Swift mirror in flight
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -80,6 +80,20 @@
       invisible to coverage); CI gate raised to the spec's 80. Kernel-balance and edge-response
       bugs in Foote novelty found and fixed by these tests.
 - [x] Update PR #1 description for Phase 2 → next: Phase 3 (annotations, undo, export)
+
+## Phase 3 task checklist
+
+- [x] Annotation CRUD API (POST/GET/PATCH/DELETE /annotations) + validation
+- [x] HistoryManager: RFC-6902 forward+inverse patches in undo_log; every annotation mutation
+      transactional + logged; redo branch invalidated by new forward actions
+- [x] /undo /redo (409 on empty stacks; §7.3 response shape) + /history (last 100)
+- [x] Schema v2 migration: annotations.id AUTOINCREMENT — SQLite rowid reuse would have let a
+      recycled id corrupt patch identity (caught by the redo-invalidation test)
+- [x] Export §6.6: JSON document + CSV zip (features.csv on densest grid, annotations.csv,
+      onsets.csv, manifest.json); region slicing; docs/export_schema.md (schema_version 1)
+- [ ] Swift mirror (DocumentStore, annotation/undo/history APIClient endpoints) — background
+      agent in flight; verify via CI when it lands
+- [ ] Phase 3 DoD wrap: full data path demo on a 1-hour file; update PR #1
 
 ## Deviations from BUILD_SPEC.md
 

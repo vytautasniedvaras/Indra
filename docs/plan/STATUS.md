@@ -20,7 +20,7 @@
 ## Phase 0 task checklist
 
 - [x] Repo bootstrap: skeleton dirs, BUILD_SPEC.md, living docs, ADRs 0001–0010, CI, .gitignore
-- [ ] `backend/pyproject.toml` + `uv.lock` + ruff/mypy config; verify MPT pinned-SHA install & import
+- [x] `backend/pyproject.toml` + `uv.lock` + ruff/mypy config; MPT vendored (ADR 0011) & import verified
 - [ ] FastAPI app factory + lifespan (SQLite WAL, ProcessPoolExecutor(spawn), JobRegistry)
 - [ ] Bearer-token middleware; 127.0.0.1-only bind; session.json port/token handshake
 - [ ] `/health`, `/project` endpoints
@@ -35,7 +35,16 @@
 
 ## Deviations from BUILD_SPEC.md
 
-(none yet)
+1. **MPT vendored, not pip-installed** (ADR 0011): the spec's canonical
+   `git+…#subdirectory=python` install is broken at the pinned SHA *and* at upstream HEAD
+   (pyproject references `../README.md`, rejected by modern setuptools; verified with pip and
+   uv). Vendored unmodified at the pinned SHA under `backend/src/indra/_vendor/mpt/`.
+2. **av pinned `<14.3`** (spec: `<15`): av 14.4.0 ships no cp312 wheels and its sdist requires
+   ffmpeg 7 headers; 14.2.0 has wheels everywhere we build.
+3. **soxr LGPL-2.1 exception** (transitive, mandatory under spec-pinned librosa): dynamically
+   linked, policy forbids LGPL-*static* only. Documented in docs/licenses.md; user can veto.
+4. **sqlite-vec not yet added**: spec lists it in §6.1 pins but marks it "Phase 5 use"; it will
+   be added when Phase 5 starts.
 
 ## Blockers / waiting on user
 

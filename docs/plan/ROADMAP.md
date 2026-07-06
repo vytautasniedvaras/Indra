@@ -47,10 +47,11 @@ tracks completion only.
 - [x] Annotation CRUD API + SQLite schema (v2: AUTOINCREMENT ids)
 - [x] `HistoryManager` with RFC-6902 patch log (§7)
 - [x] `/undo`, `/redo`, `/history`
-- [ ] Swift-side mirror: reducer + DocumentStore, selection-as-state (agent in flight)
+- [x] Swift-side mirror: reducer + DocumentStore, selection-as-state
 - [x] Export endpoint (§6.6), JSON + CSV, schema documented in `docs/export_schema.md`
-- [ ] **DoD**: full data path for the 1-hour noisescape — import, analyze, annotate, undo/redo,
-      export JSON that drives an external visual pipeline
+- [x] **DoD**: full data path for the 1-hour noisescape — import (46 s), analyze (all five,
+      250 s wall), annotate, undo/redo, export JSON (58 MB, 5 s) — verified end-to-end via
+      API; the minimal SwiftUI harness view ships with Phase 4 (Mac-side)
 
 ## Phase 4 — Native UI maturity (open-ended)
 

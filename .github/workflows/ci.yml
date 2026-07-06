@@ -47,3 +47,7 @@ jobs:
         if: steps.kit.outputs.present == 'true'
         working-directory: apple/IndraKit
         run: swift test --parallel
+      - name: Build app package (Linux stub, structural check)
+        if: steps.kit.outputs.present == 'true'
+        working-directory: apple/IndraApp
+        run: swift build

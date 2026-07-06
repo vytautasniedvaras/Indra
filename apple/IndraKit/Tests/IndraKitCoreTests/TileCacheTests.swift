@@ -60,9 +60,3 @@ struct TileCacheTests {
         #expect(await cache.totalBytes == 10)
     }
 }
-
-extension Tile: @retroactive Equatable {
-    public static func == (lhs: Tile, rhs: Tile) -> Bool {
-        lhs.data == rhs.data && lhs.shape == rhs.shape && lhs.dtype == rhs.dtype
-    }
-}

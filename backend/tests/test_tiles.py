@@ -77,9 +77,7 @@ def test_waveform_tile_unknown_audio(client: TestClient) -> None:
 def test_spec_tile_binary(client: TestClient, audio_id: str) -> None:
     manifest = client.get(f"/files/{audio_id}/manifest").json()
     n_bins = manifest["spec"]["n_bins"]
-    response = client.get(
-        f"/files/{audio_id}/spec/tile", params={"lod": 0, "t0": 0, "t1": 32}
-    )
+    response = client.get(f"/files/{audio_id}/spec/tile", params={"lod": 0, "t0": 0, "t1": 32})
     assert response.status_code == 200
     shape = tuple(int(x) for x in response.headers["x-indra-tile-shape"].split(","))
     assert shape == (32, n_bins)
@@ -113,9 +111,7 @@ def test_spec_tile_sweep_energy_moves_up(client: TestClient, audio_id: str) -> N
     """In an exponential sweep, the peak bin index must increase over time."""
     manifest = client.get(f"/files/{audio_id}/manifest").json()
     frames = manifest["spec"]["lods"][0]["frames"]
-    early = client.get(
-        f"/files/{audio_id}/spec/tile", params={"lod": 0, "t0": 1, "t1": 2}
-    ).content
+    early = client.get(f"/files/{audio_id}/spec/tile", params={"lod": 0, "t0": 1, "t1": 2}).content
     late = client.get(
         f"/files/{audio_id}/spec/tile",
         params={"lod": 0, "t0": frames - 2, "t1": frames - 1},

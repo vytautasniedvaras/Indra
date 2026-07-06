@@ -12,22 +12,30 @@ from fastapi import APIRouter, Request, Response
 from sse_starlette.sse import EventSourceResponse
 
 from indra import ENGINE_VERSION
+from indra import export as export_mod
 from indra.analyses.runner import ANALYSIS_KINDS
 from indra.api.errors import ApiError
 from indra.api.schemas import (
     AnalyzeRequest,
+    AnnotationCreate,
+    AnnotationPatch,
+    AnnotationRecord,
     AudioFile,
     CancelResponse,
+    ExportRequest,
     FileManifest,
     HealthResponse,
+    HistoryEntry,
     ImportRequest,
     JobCreatedResponse,
     JobInfo,
     ProjectResponse,
     SpecLod,
     SpecManifest,
+    UndoResponse,
     WaveformLod,
 )
+from indra.history.manager import HistoryError, HistoryManager
 from indra.jobs.registry import JobHandle, JobRegistry
 from indra.jobs.workers import WORKERS
 from indra.storage.db import Database
@@ -320,6 +328,106 @@ async def feature_values(
         if "onsets" in result_ref:
             payload["onsets"] = result_ref["onsets"]
     return payload
+
+
+def _history(request: Request) -> HistoryManager:
+    manager: HistoryManager = request.app.state.history
+    return manager
+
+
+def _guard_history(exc: HistoryError) -> ApiError:
+    status = 404 if exc.code == "not_found" else 400
+    if exc.code in ("nothing_to_undo", "nothing_to_redo"):
+        status = 409
+    return ApiError(status, exc.code, str(exc))
+
+
+@router.post("/annotations")
+async def create_annotation(request: Request, body: AnnotationCreate) -> AnnotationRecord:
+    row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
+    if row is None:
+        raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
+    if body.t1 < body.t0:
+        raise ApiError(400, "bad_request", "t1 must be >= t0")
+    try:
+        created = _history(request).create_annotation(body.model_dump())
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+    return AnnotationRecord(**created)
+
+
+@router.get("/annotations")
+async def list_annotations(request: Request, audio_id: str) -> list[AnnotationRecord]:
+    rows = _db(request).query("SELECT * FROM annotations WHERE audio_id=? ORDER BY t0", (audio_id,))
+    return [AnnotationRecord(**dict(row)) for row in rows]
+
+
+@router.patch("/annotations/{annotation_id}")
+async def patch_annotation(
+    request: Request, annotation_id: int, body: AnnotationPatch
+) -> AnnotationRecord:
+    updates = dict(body.model_dump(exclude_unset=True).items())
+    try:
+        updated = _history(request).update_annotation(annotation_id, updates)
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+    return AnnotationRecord(**updated)
+
+
+@router.delete("/annotations/{annotation_id}")
+async def delete_annotation(request: Request, annotation_id: int) -> dict[str, bool]:
+    try:
+        _history(request).delete_annotation(annotation_id)
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+    return {"deleted": True}
+
+
+@router.post("/undo")
+async def undo(request: Request) -> UndoResponse:
+    try:
+        return UndoResponse(**_history(request).undo())
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+
+
+@router.post("/redo")
+async def redo(request: Request) -> UndoResponse:
+    try:
+        return UndoResponse(**_history(request).redo())
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+
+
+@router.get("/history")
+async def history(request: Request) -> list[HistoryEntry]:
+    return [HistoryEntry(**entry) for entry in _history(request).history()]
+
+
+@router.post("/export")
+async def export(request: Request, body: ExportRequest) -> Response:
+    region = None
+    if body.region is not None:
+        region = {k: v for k, v in body.region.model_dump().items() if v is not None}
+    try:
+        document = export_mod.gather(
+            _db(request), _paths(request), body.audio_id, body.kinds, region
+        )
+    except export_mod.ExportError as exc:
+        status = 404 if exc.code == "not_found" else 400
+        raise ApiError(status, exc.code, str(exc)) from exc
+    stem = f"indra-export-{body.audio_id[:12]}"
+    if body.format == "json":
+        return Response(
+            content=export_mod.to_json_bytes(document),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{stem}.json"'},
+        )
+    return Response(
+        content=export_mod.to_csv_zip_bytes(document),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.zip"'},
+    )
 
 
 @router.get("/jobs")

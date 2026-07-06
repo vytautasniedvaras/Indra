@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS audio_files (
@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS labels (
 );
 
 CREATE TABLE IF NOT EXISTS annotations (
-    id         INTEGER PRIMARY KEY,
+    -- AUTOINCREMENT: ids must never be reused, or undo/redo patches that
+    -- reference deleted ids would target a recycled row.
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
     audio_id   TEXT NOT NULL REFERENCES audio_files(id),
     t0         REAL NOT NULL,
     t1         REAL NOT NULL,
@@ -103,9 +105,34 @@ def open_db(path: Path) -> sqlite3.Connection:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version < SCHEMA_VERSION:
         with conn:
+            if version == 1:
+                _migrate_v1_to_v2(conn)
             conn.executescript(_SCHEMA)
             conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
     return conn
+
+
+def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
+    """v2: annotations.id becomes AUTOINCREMENT (no rowid reuse; see schema)."""
+    conn.executescript(
+        """
+        ALTER TABLE annotations RENAME TO annotations_v1;
+        CREATE TABLE annotations (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            audio_id   TEXT NOT NULL REFERENCES audio_files(id),
+            t0         REAL NOT NULL,
+            t1         REAL NOT NULL,
+            f0         REAL,
+            f1         REAL,
+            label      TEXT,
+            note       TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO annotations SELECT * FROM annotations_v1;
+        DROP TABLE annotations_v1;
+        """
+    )
 
 
 class Database:

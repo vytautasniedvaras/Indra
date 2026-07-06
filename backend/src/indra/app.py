@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from indra.api.errors import install_error_handlers
 from indra.api.routes import router
 from indra.config import ServerConfig
+from indra.history.manager import HistoryManager
 from indra.jobs.registry import JobRegistry
 from indra.storage.cache import CacheIndex
 from indra.storage.db import Database
@@ -38,6 +39,7 @@ def create_app(config: ServerConfig) -> FastAPI:
         app.state.db = db
         app.state.cache = cache
         app.state.jobs = registry
+        app.state.history = HistoryManager(db)
         try:
             yield
         finally:

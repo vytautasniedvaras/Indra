@@ -12,6 +12,7 @@ from fastapi import APIRouter, Request, Response
 from sse_starlette.sse import EventSourceResponse
 
 from indra import ENGINE_VERSION
+from indra.analyses.runner import ANALYSIS_KINDS
 from indra.api.errors import ApiError
 from indra.api.schemas import (
     AnalyzeRequest,
@@ -30,6 +31,7 @@ from indra.api.schemas import (
 from indra.jobs.registry import JobHandle, JobRegistry
 from indra.jobs.workers import WORKERS
 from indra.storage.db import Database
+from indra.storage.features import minmax_buckets, read_feature
 from indra.storage.paths import PROJECT_FORMAT_VERSION, ProjectPaths
 
 router = APIRouter()
@@ -140,6 +142,10 @@ async def file_manifest(request: Request, audio_id: str) -> FileManifest:
             mono_downmix=bool(attrs["mono_downmix"]),
             lods=spec_lods,
         )
+    feature_rows = _db(request).query(
+        "SELECT DISTINCT kind FROM analysis_cache WHERE audio_id=? AND blob_path != ''",
+        (audio_id,),
+    )
     return FileManifest(
         id=str(row["id"]),
         sr=int(row["sr"]),
@@ -149,6 +155,7 @@ async def file_manifest(request: Request, audio_id: str) -> FileManifest:
         format=str(row["format"]),
         waveform_lods=lods,
         spec=spec_manifest,
+        features=sorted(str(r["kind"]) for r in feature_rows),
     )
 
 
@@ -226,13 +233,93 @@ async def analyze(request: Request, body: AnalyzeRequest) -> JobCreatedResponse:
     if body.kind not in WORKERS or body.kind == "import":
         raise ApiError(400, "bad_request", f"unknown analysis kind: {body.kind}")
     params = dict(body.params)
+    if body.kind in ANALYSIS_KINDS and not body.audio_id:
+        raise ApiError(400, "bad_request", f"{body.kind} requires audio_id")
     if body.audio_id:
         row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
         if row is None:
             raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
         params["project_root"] = str(_paths(request).root)
+    if body.kind in ANALYSIS_KINDS:
+        params["_kind"] = body.kind
+        if body.region is not None:
+            region = {k: v for k, v in body.region.model_dump().items() if v is not None}
+            if region:
+                params["region"] = region
     handle = _registry(request).submit(body.kind, params, audio_id=body.audio_id)
     return JobCreatedResponse(job_id=handle.id)
+
+
+_RAW_POINT_CAP = 20_000
+
+
+@router.get("/files/{audio_id}/features/{kind}")
+async def feature_values(
+    request: Request,
+    audio_id: str,
+    kind: str,
+    t0: float | None = None,
+    t1: float | None = None,
+    downsample: int | None = None,
+    key: str | None = None,
+) -> dict[str, Any]:
+    db = _db(request)
+    if key:
+        row = db.query_one(
+            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?", (key, audio_id)
+        )
+    else:
+        row = db.query_one(
+            "SELECT * FROM analysis_cache WHERE audio_id=? AND kind=? AND blob_path != '' "
+            "ORDER BY created_at DESC LIMIT 1",
+            (audio_id, kind),
+        )
+    if row is None:
+        raise ApiError(404, "not_found", f"no computed {kind} for {audio_id}")
+    blob = _paths(request).root / str(row["blob_path"])
+    if not blob.exists():
+        raise ApiError(404, "not_found", "feature table missing (evicted); re-run analysis")
+    columns, metadata = read_feature(blob)
+
+    times = columns["time_s"]
+    lo = int(np.searchsorted(times, t0)) if t0 is not None else 0
+    hi = int(np.searchsorted(times, t1)) if t1 is not None else len(times)
+    window = slice(lo, hi)
+    n = hi - lo
+    if downsample is None and n > _RAW_POINT_CAP:
+        raise ApiError(
+            400,
+            "bad_request",
+            f"{n} points exceeds the raw cap ({_RAW_POINT_CAP}); pass ?downsample=<buckets>",
+        )
+
+    value_names = [c for c in columns if c not in ("time_s", "frame_index")]
+    payload: dict[str, Any] = {
+        "audio_id": audio_id,
+        "kind": str(row["kind"]),
+        "cache_key": str(row["key"]),
+        "params": metadata.get("params", {}),
+        "sr": metadata.get("sr"),
+        "n": n,
+        "t0": float(times[lo]) if n else None,
+        "t1": float(times[hi - 1]) if n else None,
+        "columns": value_names,
+    }
+    if downsample is not None:
+        payload["buckets"] = {
+            name: minmax_buckets(times[window], columns[name][window], downsample)
+            for name in value_names
+        }
+    else:
+        payload["values"] = {"time_s": [float(t) for t in times[window]]}
+        for name in value_names:
+            payload["values"][name] = [float(v) for v in columns[name][window]]
+    result_json = row["result_json"]
+    if result_json:
+        result_ref = json.loads(str(result_json))
+        if "onsets" in result_ref:
+            payload["onsets"] = result_ref["onsets"]
+    return payload
 
 
 @router.get("/jobs")

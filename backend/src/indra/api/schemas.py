@@ -102,7 +102,15 @@ class CancelResponse(BaseModel):
     cancelled: bool
 
 
+class Region(BaseModel):
+    t0: float | None = None
+    t1: float | None = None
+    f0: float | None = None
+    f1: float | None = None
+
+
 class AnalyzeRequest(BaseModel):
     kind: str
     audio_id: str = ""
     params: dict[str, Any] = Field(default_factory=dict)
+    region: Region | None = None

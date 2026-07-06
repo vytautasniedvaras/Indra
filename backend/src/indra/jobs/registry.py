@@ -220,12 +220,16 @@ class JobRegistry:
             handle.progress = 1.0
             handle.result_ref = result
             if handle.kind in CACHEABLE_KINDS:
+                blob = result.get("_blob") or {}
                 self._cache.put(
                     cache_key(audio_id, handle.kind, handle.params),
                     audio_id=audio_id,
                     kind=handle.kind,
                     params=handle.params,
                     result_ref=result,
+                    blob_path=str(blob.get("path", "")),
+                    blob_kind=str(blob.get("kind", "")),
+                    size_bytes=int(blob.get("size", 0)),
                 )
         except JobCancelledError:
             handle.state = "cancelled"

@@ -49,6 +49,7 @@ allow-direct-references = true
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+extend-exclude = ["src/indra/_vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -57,9 +58,24 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 files = ["src/indra"]
+exclude = ["src/indra/_vendor"]
 
 [[tool.mypy.overrides]]
-module = ["librosa.*", "soundfile.*", "mpt.*", "libfmp.*", "scipy.*", "zarr.*", "numcodecs.*"]
+module = [
+    "librosa.*",
+    "soundfile.*",
+    "libfmp.*",
+    "scipy.*",
+    "zarr.*",
+    "numcodecs.*",
+    "av.*",
+    "indra._vendor.*",
+]
+ignore_errors = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["librosa.*", "soundfile.*", "libfmp.*", "scipy.*", "zarr.*", "numcodecs.*", "av.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -68,3 +84,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["indra"]
+omit = ["*/_vendor/*", "*/server.py"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/indra/_vendor/**" = ["ALL"]

@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 1 — Tile serving and IndraKit client (backend half done)
+- **Current phase**: Phase 1 essentially complete (perf lever deferred to Phase 2) → Phase 2 — On-demand analyses and MPT
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -42,16 +42,21 @@
 - [x] uint8 dB multi-scale spec pyramid (7-term Blackman-Harris per Albrecht 2001, Blosc+Zstd
       bitshuffle, max-pool LODs, 0 dB = full-scale sine) wired into import step 4
 - [x] `/waveform/tile` + `/spec/tile` binary endpoints with X-Indra-Tile-* headers
-- [ ] IndraKit Swift package (Core/Net/AppleGlue) with swift-testing on Linux via Docker
-- [ ] APIClient covering every endpoint + SSE parser (AsyncThrowingStream)
-- [ ] TileCache, EditorState, reducer, undo stack (Linux-tested)
-- [ ] dev/api_probe.html throwaway probe
+- [x] IndraKit Swift package (Core/Net/AppleGlue), Swift 6 mode, swift-testing — 47 tests
+      green in swift:6.2-noble via CI (local Docker blocked: registry CDNs denied by the
+      environment network policy; CI is the Swift test runner for now)
+- [x] APIClient covering every endpoint + byte-level SSE parser (CRLF-grapheme bug caught by CI)
+      + consumer-cancellation → POST /cancel (and NOT on normal completion)
+- [x] TileCache (byte-bounded LRU actor), EditorState + pure reducer, UndoStack with drag
+      coalescing — all Linux-tested
+- [x] dev/api_probe.html throwaway probe + apple/README.md build steps
 - [x] CI green for backend + indrakit jobs (run 28812887031, after user's GitHub Pro upgrade)
-- [ ] **Perf follow-up**: live import of a 90 s mono 44.1 kHz file took ~35 s wall (single
-      worker, serial hash→waveform→STFT). Extrapolates ~23 min for the 1-hour reference vs the
-      §6.2 target of ≤90 s at 4 workers. Profile (suspects: per-append Blosc compression on
-      small zarr appends, Manager-proxy progress reports per block, serial pipeline stages)
-      and parallelize before Phase 1 closes.
+- [ ] **Perf follow-up (corrected)**: the earlier 35 s reading was a measurement artifact
+      (an SSE curl blocked inside the timed shell window). Clean measurement: 3.25 s for the
+      90 s file end-to-end through the live server; profiled stages: probe+hash+waveform 0.1 s,
+      STFT pyramid 2.35 s. Projection for 1-hour stereo ≈ 4 min single-worker vs the §6.2
+      target of ≤90 s at 4 workers → needs ~3x: parallelize STFT blocks across the pool
+      (or per-stage jobs). Do when the 1-hour reference file testing starts (Phase 2).
 
 ## Deviations from BUILD_SPEC.md
 

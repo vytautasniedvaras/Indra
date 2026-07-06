@@ -1,0 +1,85 @@
+<!-- THROWAWAY DEV TOOL — not a product surface. May be deleted at any time.
+     Renders one waveform + one spectrogram slab straight from a running Indra
+     backend to eyeball tile serving. Do not maintain, do not test, do not evolve.
+     Usage: python -m indra.server --project /tmp/x.indra --port 0
+            then open this file, paste port + token from the session.json. -->
+<meta charset="utf-8">
+<title>Indra api probe (throwaway)</title>
+<style>
+  body { font: 13px monospace; background: #111; color: #ccc; margin: 16px; }
+  input { background: #222; color: #eee; border: 1px solid #444; padding: 4px; }
+  canvas { display: block; margin-top: 10px; background: #000; }
+  b.warn { color: #f66; }
+</style>
+<b class="warn">THROWAWAY DEV PROBE — not a product surface</b><br><br>
+port <input id="port" size="6" value="8000">
+token <input id="token" size="44">
+audio_id (blank = first file) <input id="audio" size="20">
+<button onclick="go()">probe</button>
+<pre id="log"></pre>
+<canvas id="wave" width="1200" height="120"></canvas>
+<canvas id="spec" width="1200" height="400"></canvas>
+<script>
+const log = m => document.getElementById("log").textContent += m + "\n";
+async function api(path, binary) {
+  const port = document.getElementById("port").value;
+  const token = document.getElementById("token").value;
+  const r = await fetch(`http://127.0.0.1:${port}${path}`, {
+    headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`${path} -> ${r.status}`);
+  return binary ? { buf: await r.arrayBuffer(), headers: r.headers } : r.json();
+}
+async function go() {
+  document.getElementById("log").textContent = "";
+  try {
+    let audio = document.getElementById("audio").value;
+    if (!audio) {
+      const files = await api("/files");
+      if (!files.length) return log("no files imported yet");
+      audio = files[0].id;
+      log(`using first file: ${audio.slice(0, 12)}… (${files[0].duration_s}s)`);
+    }
+    const man = await api(`/files/${audio}/manifest`);
+
+    // waveform: pick a LOD near 1200 buckets
+    const wl = man.waveform_lods.reduce((a, b) =>
+      Math.abs(b.buckets - 1200) < Math.abs(a.buckets - 1200) ? b : a);
+    const wt = await api(`/files/${audio}/waveform/tile?lod=${wl.lod}&start=0&count=${wl.buckets}`, true);
+    const shape = wt.headers.get("x-indra-tile-shape").split(",").map(Number);
+    const pcm = new Int16Array(wt.buf);
+    const wc = document.getElementById("wave").getContext("2d");
+    wc.clearRect(0, 0, 1200, 120); wc.fillStyle = "#6fd0c0";
+    const [buckets, ch] = shape;
+    for (let x = 0; x < 1200; x++) {
+      const i = Math.floor(x * buckets / 1200) * ch * 2;
+      const lo = 60 - (pcm[i + 1] / 32767) * 58, hi = 60 - (pcm[i] / 32767) * 58;
+      wc.fillRect(x, Math.min(lo, hi), 1, Math.max(1, Math.abs(hi - lo)));
+    }
+    log(`waveform lod ${wl.lod}: ${buckets} buckets`);
+
+    // spectrogram: pick a LOD near 1200 frames, draw up to ~8kHz
+    if (!man.spec) return log("no spec pyramid");
+    const sl = man.spec.lods.reduce((a, b) =>
+      Math.abs(b.frames - 1200) < Math.abs(a.frames - 1200) ? b : a);
+    const bmax = Math.min(man.spec.n_bins,
+      Math.round(8000 / (man.sr / man.spec.n_fft)));
+    const st = await api(`/files/${audio}/spec/tile?lod=${sl.lod}&t0=0&t1=${sl.frames}&f0=0&f1=${bmax}`, true);
+    const [frames, bins] = st.headers.get("x-indra-tile-shape").split(",").map(Number);
+    const px = new Uint8Array(st.buf);
+    const sc = document.getElementById("spec").getContext("2d");
+    const img = sc.createImageData(1200, 400);
+    for (let y = 0; y < 400; y++) {
+      const bin = Math.floor((399 - y) * bins / 400);
+      for (let x = 0; x < 1200; x++) {
+        const f = Math.floor(x * frames / 1200);
+        const v = px[f * bins + bin];
+        const o = (y * 1200 + x) * 4;
+        img.data[o] = v; img.data[o + 1] = v * 0.35; img.data[o + 2] = 96 - v * 0.3;
+        img.data[o + 3] = 255;
+      }
+    }
+    sc.putImageData(img, 0, 0);
+    log(`spec lod ${sl.lod}: ${frames} frames × ${bins} bins`);
+  } catch (e) { log("ERROR " + e.message); }
+}
+</script>

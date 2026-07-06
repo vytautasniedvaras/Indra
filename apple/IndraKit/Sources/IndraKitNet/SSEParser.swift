@@ -19,7 +19,9 @@ public struct SSEEvent: Sendable, Equatable {
 }
 
 public struct SSEParser: Sendable {
-    private var pending = ""
+    // Byte-level buffering: Swift Strings treat "\r\n" as one grapheme
+    // Character, which breaks Character-based newline scanning on CRLF input.
+    private var pending: [UInt8] = []
     private var eventName: String?
     private var dataLines: [String] = []
     private var lastId: String?
@@ -27,18 +29,19 @@ public struct SSEParser: Sendable {
 
     public init() {}
 
-    public mutating func feed(_ chunk: Data) -> [SSEEvent] {
-        feed(String(decoding: chunk, as: UTF8.self))
+    public mutating func feed(_ chunk: String) -> [SSEEvent] {
+        feed(Data(chunk.utf8))
     }
 
-    public mutating func feed(_ chunk: String) -> [SSEEvent] {
-        pending += chunk
+    public mutating func feed(_ chunk: Data) -> [SSEEvent] {
+        pending.append(contentsOf: chunk)
         var events: [SSEEvent] = []
         // Process complete lines only; keep the trailing partial line buffered.
-        while let newline = pending.firstIndex(of: "\n") {
-            var line = String(pending[..<newline])
-            pending = String(pending[pending.index(after: newline)...])
-            if line.hasSuffix("\r") { line.removeLast() }
+        while let newline = pending.firstIndex(of: 0x0A) {
+            var lineBytes = Array(pending[..<newline])
+            pending.removeFirst(newline + 1)
+            if lineBytes.last == 0x0D { lineBytes.removeLast() }
+            let line = String(decoding: lineBytes, as: UTF8.self)
             if let event = process(line: line) {
                 events.append(event)
             }

@@ -46,7 +46,12 @@
 - [ ] APIClient covering every endpoint + SSE parser (AsyncThrowingStream)
 - [ ] TileCache, EditorState, reducer, undo stack (Linux-tested)
 - [ ] dev/api_probe.html throwaway probe
-- [ ] CI green for backend + indrakit jobs (Actions unlocked after user's Pro upgrade — verify)
+- [x] CI green for backend + indrakit jobs (run 28812887031, after user's GitHub Pro upgrade)
+- [ ] **Perf follow-up**: live import of a 90 s mono 44.1 kHz file took ~35 s wall (single
+      worker, serial hash→waveform→STFT). Extrapolates ~23 min for the 1-hour reference vs the
+      §6.2 target of ≤90 s at 4 workers. Profile (suspects: per-append Blosc compression on
+      small zarr appends, Manager-proxy progress reports per block, serial pipeline stages)
+      and parallelize before Phase 1 closes.
 
 ## Deviations from BUILD_SPEC.md
 
@@ -69,9 +74,10 @@
 
 ## Notes for the next session
 
-- Heartbeat trigger (cron, hourly) could NOT be armed: MCP create_trigger kept failing with
-  "requires approval" (permission stream flaky). Retry each session until it sticks; until
-  then resumption relies on the user opening the app or any message arriving.
+- Durable MCP create_trigger still blocked on approval (retried many times). In-session
+  hourly CronCreate heartbeat is armed instead (re-arm at session start — it died once
+  already with a container restart on 2026-07-06 evening). If the user is in the app when
+  create_trigger is retried, a one-tap approval makes continuation fully durable.
 - SQLite datetime('now') is 1-second granular — LRU tests sleep 1.1 s between puts. If cache
   churn ever needs sub-second LRU, switch last_used_at to unixepoch subsecond.
 

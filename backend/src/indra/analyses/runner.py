@@ -24,6 +24,7 @@ ANALYSIS_KINDS = frozenset(
         "template_harmonicity_mpt",
         "onsets_superflux_pcen",
         "foote_novelty_multiscale",
+        "audition",
     }
 )
 
@@ -80,6 +81,29 @@ def run_analysis(
         from indra.analyses.novelty import foote_novelty
 
         columns = foote_novelty(audio_path, sr, params, cancel_event, progress, duration_s)
+    elif kind == "audition":
+        from indra.analyses.audition import render_audition
+        from indra.storage.cache import cache_key as compute_key
+
+        full_params = {**params, "_kind": kind, "project_root": str(paths.root)}
+        key = compute_key(audio_id, kind, full_params)
+        out_path = paths.blob_path(key, "wav")
+        meta = render_audition(
+            audio_path, sr, duration_s, params.get("mask") or {}, out_path, cancel_event
+        )
+        report(progress_queue, 1.0, "audition rendered")
+        return {
+            "kind": kind,
+            "audio_id": audio_id,
+            "audition_id": key,
+            "wav_path": str(out_path.relative_to(paths.root)),
+            **meta,
+            "_blob": {
+                "path": str(out_path.relative_to(paths.root)),
+                "kind": "wav",
+                "size": out_path.stat().st_size,
+            },
+        }
     else:
         raise ValueError(f"unknown analysis kind: {kind}")
 

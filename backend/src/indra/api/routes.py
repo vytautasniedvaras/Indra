@@ -21,6 +21,7 @@ from indra.api.schemas import (
     AnnotationPatch,
     AnnotationRecord,
     AudioFile,
+    AuditionRequest,
     CancelResponse,
     ExportRequest,
     FileManifest,
@@ -402,6 +403,23 @@ async def redo(request: Request) -> UndoResponse:
 @router.get("/history")
 async def history(request: Request) -> list[HistoryEntry]:
     return [HistoryEntry(**entry) for entry in _history(request).history()]
+
+
+@router.post("/audition")
+async def audition(request: Request, body: AuditionRequest) -> JobCreatedResponse:
+    row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
+    if row is None:
+        raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
+    mask = {k: v for k, v in body.mask.model_dump().items() if v is not None}
+    if "t0" not in mask or "t1" not in mask:
+        raise ApiError(400, "bad_request", "mask requires t0 and t1")
+    params = {
+        "_kind": "audition",
+        "project_root": str(_paths(request).root),
+        "mask": mask,
+    }
+    handle = _registry(request).submit("audition", params, audio_id=body.audio_id)
+    return JobCreatedResponse(job_id=handle.id)
 
 
 @router.post("/export")

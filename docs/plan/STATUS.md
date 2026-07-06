@@ -16,6 +16,8 @@
 - Run straight through Phases 0–3; never block on Mac smoke tests (queue them in
   `docs/plan/SMOKE_TESTS.md` and phase-boundary GitHub issues).
 - Contact user only at spec §10.5 boundaries: GitHub `Question:` issue + session chat message.
+- **Commit messages: NO attribution trailers** (no Co-Authored-By, no Claude-Session links) —
+  user request 2026-07-06. Plain conventional-commit messages only.
 
 ## Phase 0 task checklist
 

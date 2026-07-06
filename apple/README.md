@@ -46,8 +46,35 @@ cd apple/IndraKit
 swift test --parallel        # on macOS, or in docker swift:6.2-noble on Linux
 ```
 
-## The app (Phase 3+)
+## The app — debug harness (Phase 4 scaffold)
 
-`IndraApp.xcodeproj` will land with the Phase 3 milestone (annotation table + debug canvas)
-and grow through Phase 4 (Metal renderer, playback, audition). Open it in Xcode and ⌘R;
-it discovers a running backend via the session file, or spawns one.
+`IndraApp/` is a **SwiftPM package with an executable target**, not an `.xcodeproj` —
+Xcode 16 opens `Package.swift` directly and ⌘R runs the `@main` SwiftUI app.
+
+Open and run:
+
+1. Backend setup is unchanged (sections above). You do **not** need to start the
+   backend by hand — the app spawns it if none is running. One-time: launch the app,
+   open Settings (⌘,), and set “Backend Python” to your venv interpreter, e.g.
+   `<repo>/apple/../backend/.venv/bin/python` (a bare system Python lacks the `indra`
+   package and the spawn will fail with a clear error + Retry button).
+2. `open apple/IndraApp/Package.swift` in Xcode 16.2+ (or File ▸ Open… the
+   `apple/IndraApp` folder).
+3. Select the **IndraApp** scheme, destination **My Mac**, then **⌘R**.
+
+On launch the app looks for a running backend via
+`~/Library/Application Support/Indra/session.json`; if absent it spawns
+`python -m indra.server --project ~/Music/Indra/scratch.indra --port 0` and polls
+for the handshake file.
+
+What's in the harness today: file import + list, a CPU-drawn waveform/spectrogram
+debug canvas, annotation table with ⌘Z/⇧⌘Z undo/redo (backed by the server's
+history), the five analysis kinds with live SSE progress bars + per-job cancel,
+JSON export via a save panel, and AVAudioEngine playback of the original file with
+click-to-seek and 0.25–4× time-pitch. **This is the debug harness, not the final
+UI — the Metal tile canvas (BUILD_SPEC §5.3) lands next.**
+
+Nothing under `IndraApp/Sources` is CI-verifiable (SwiftUI/AVFoundation need
+macOS); it is user-smoke-tested only — see `docs/plan/SMOKE_TESTS.md` (Phase 4).
+On Linux the target compiles to a stub executable so `swift build` remains a
+structural check.

@@ -1,0 +1,65 @@
+# Indra — Roadmap and Definition-of-Done tracker
+
+Mirror of `docs/BUILD_SPEC.md` §9, with live checkboxes. Detail lives in the spec; this file
+tracks completion only.
+
+## Phase 0 — Engine skeleton and ingest
+
+- [ ] Backend project scaffolding (`pyproject.toml`, `uv.lock`, ruff + mypy)
+- [ ] FastAPI app: `/health`, `/project`, `/files/import`, `/files`; lifespan-managed SQLite +
+      ProcessPoolExecutor + JobRegistry
+- [ ] Bearer-token middleware
+- [ ] Cancellable job system (§4.5) with SSE progress endpoint, tested via httpx streaming
+- [ ] Ingest steps 1–3: probe, content hash, waveform peak pyramid
+- [ ] pytest coverage ≥ 70 %; job cancellation test green
+- [ ] **DoD**: `curl -N …/jobs/{id}/events` streams progress; POST cancel aborts within 2 s
+
+## Phase 1 — Tile serving and IndraKit client
+
+- [ ] STFT tile pyramid (§6.4) via `librosa.stream`, multi-scale Zarr
+- [ ] Streaming vs full STFT equivalence test (§6.3) green — riskiest correctness assumption
+- [ ] `/spec/tile` and `/waveform/tile` binary endpoints with `X-Indra-Tile-*` headers
+- [ ] `IndraKit` package: `IndraKitCore`, `IndraKitNet`, `IndraKitAppleGlue`
+- [ ] `APIClient` (URLSession + FoundationNetworking gate) covering every endpoint
+- [ ] SSE parser → `AsyncThrowingStream<SSEEvent, Error>`
+- [ ] `TileCache`, `EditorState`, reducer, undo stack — Linux-tested (swift-testing)
+- [ ] GitHub Actions CI green: `backend` + `indrakit`
+- [ ] **DoD**: `dev/api_probe.html` renders waveform + spectrogram tile from a real ingested
+      file; Swift tests pass in `swift:6.2-noble`
+
+## Phase 2 — On-demand analyses and MPT
+
+- [ ] `indra.mpt_frames`: roughness / entropy / template-harmonicity curves — cancellable, parallel
+- [ ] SuperFlux-on-PCEN onset detection
+- [ ] Multi-scale Foote checkerboard novelty
+- [ ] Feature Parquet storage + min/max pyramid
+- [ ] `/features/{kind}?t0=..&t1=..&downsample=..`
+- [ ] Region-scoped analysis (§6.5)
+- [ ] Golden-value tests for each MPT curve on synthetic inputs
+- [ ] **DoD**: all five analyses within perf targets on the reference file; region drill-down
+      verified via API test
+
+## Phase 3 — Annotations, undo, export
+
+- [ ] Annotation CRUD API + SQLite schema
+- [ ] `HistoryManager` with RFC-6902 patch log (§7)
+- [ ] `/undo`, `/redo`, `/history`
+- [ ] Swift-side mirror: reducer + UndoManager integration, selection-as-state
+- [ ] Export endpoint (§6.6), JSON + CSV, schema documented in `docs/export_schema.md`
+- [ ] **DoD**: full data path for the 1-hour noisescape — import, analyze, annotate, undo/redo,
+      export JSON that drives an external visual pipeline
+
+## Phase 4 — Native UI maturity (open-ended)
+
+- [ ] Metal tile renderer (§5.3): colormap LUT, LOD, ProMotion pacing, triple buffer
+- [ ] Gesture layer on subclassed MTKView
+- [ ] Selection overlay, playhead, curve lanes in one Metal pass
+- [ ] Toggleable lenses (raw dB / PCEN / roughness / harmonicity)
+- [ ] AVAudioEngine playback, filtered audition, time-stretch
+- [ ] Progress panel; Swift Charts inspector popovers
+- [ ] Polish: window state, shortcuts, drag-and-drop import
+- [ ] **DoD**: everything from Phase 3 with pointer-and-eyes UX at 60+ fps on M1 8 GB
+
+## Phase 5 — Cloud tier (opt-in; not built without explicit user consent)
+
+- [ ] GCP Cloud Batch workers; GCS artifacts; sqlite-vec similarity; clustering

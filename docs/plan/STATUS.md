@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 3 COMPLETE (data path DoD verified at 1-hour scale) → Phase 4 — Native UI
+- **Current phase**: Phase 4 — Native UI (harness app + audition + render math done; Metal canvas next)
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -100,6 +100,24 @@
       pts, 4k novelty pts, annotations, onsets) · backend RSS 221 MB (budget: ≤1.5 GB)
       — the guiding project's data path is complete end-to-end via API.
       Remaining DoD element (minimal SwiftUI harness view) is Mac-side → SMOKE_TESTS/Phase 4.
+
+## Phase 4 task checklist (in progress)
+
+- [x] `/audition` endpoint (§5.5, ADR 0008): STFT → raised-cosine mask → ISTFT to scratch WAV,
+      stereo, click-free edge fades, mask-hash cached, 600 s cap — spectral isolation verified
+- [x] Render-support math in IndraKitCore (CI-tested): Viewport (anchor-fixed zoom/pan, lin/log
+      freq), TilePlanner (LOD choice + gap-free 512-col tile coverage), Colormaps (viridis/
+      magma/inferno/cividis/gray RGBA8 LUTs), CurveLane min/max downsampler
+- [x] IndraApp debug harness (SwiftPM executable, ADR 0012; user-smoke-tested only): backend
+      spawn/discovery, import w/ SSE progress, CPU debug canvas (waveform + spectrogram),
+      annotations table w/ ⌘Z/⇧⌘Z (server-backed), five analyses w/ progress+cancel, JSON
+      export panel, AVAudioEngine playback w/ seek + 0.25-4x time-pitch. CI builds the Linux
+      stub as a structural check. **READY FOR FIRST MAC SMOKE TEST** (SMOKE_TESTS.md Phase 4).
+- [ ] Metal tile renderer (§5.3): MTKView canvas, tile atlas, colormap/freq-scale LUT shaders,
+      LOD cross-fade, overlays (playhead/selection/lanes) — consumes the IndraKitCore math
+- [ ] Gesture layer (scroll/magnify/drag on subclassed MTKView)
+- [ ] Audition wiring in the app (selection → POST /audition → play rendered WAV)
+- [ ] Quick-preview EQ fallback while audition renders (§5.5)
 
 ## Deviations from BUILD_SPEC.md
 

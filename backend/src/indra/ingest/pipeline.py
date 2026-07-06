@@ -1,7 +1,7 @@
-"""Import pipeline job: probe → content hash → waveform pyramid (§6.2 steps 1-3).
+"""Import pipeline job: probe → hash → waveform pyramid → STFT pyramid (§6.2 steps 1-4).
 
-Runs inside a worker process. Progress spans: probe 0-0.02, hash 0.02-0.35,
-copy/link 0.35-0.40, waveform 0.40-0.98, db row 0.98-1.0.
+Runs inside a worker process. Progress spans: probe 0-0.02, hash 0.02-0.25,
+copy/link 0.25-0.28, waveform 0.28-0.50, STFT pyramid 0.50-0.97, db row 0.97-1.0.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from typing import Any
 
 from indra.ingest.hashing import content_hash
 from indra.ingest.probe import probe
+from indra.ingest.stft import build_spec_pyramid
 from indra.ingest.waveform import build_waveform_pyramid
 from indra.jobs.cancellation import CancelEvent, ProgressQueue, check_cancel, report
 from indra.storage.db import open_db
@@ -38,34 +39,51 @@ def run_import(
         src,
         info.sr,
         cancel_event,
-        progress_cb=lambda frac: report(progress_queue, 0.02 + 0.33 * frac, "hashing content"),
+        progress_cb=lambda frac: report(progress_queue, 0.02 + 0.23 * frac, "hashing content"),
         total_frames=info.frames or None,
     )
 
     conn = open_db(paths.db)
     try:
         existing = conn.execute("SELECT id FROM audio_files WHERE id=?", (audio_id,)).fetchone()
-        if existing is not None and paths.waveform_zarr(audio_id).exists():
+        if (
+            existing is not None
+            and paths.waveform_zarr(audio_id).exists()
+            and paths.spec_zarr(audio_id).exists()
+        ):
             report(progress_queue, 1.0, "already imported")
             return {"audio_id": audio_id, "already_imported": True}
 
-        report(progress_queue, 0.35, "storing audio")
+        report(progress_queue, 0.25, "storing audio")
         stored = _store_audio(paths, src, audio_id, mode)
         check_cancel(cancel_event)
 
-        report(progress_queue, 0.40, "building waveform pyramid")
+        report(progress_queue, 0.28, "building waveform pyramid")
         build_waveform_pyramid(
             src,
             paths.waveform_zarr(audio_id),
             info.sr,
             cancel_event,
             progress_cb=lambda frac: report(
-                progress_queue, 0.40 + 0.58 * frac, "building waveform pyramid"
+                progress_queue, 0.28 + 0.22 * frac, "building waveform pyramid"
+            ),
+            total_frames=info.frames or None,
+        )
+        check_cancel(cancel_event)
+
+        report(progress_queue, 0.50, "building spectrogram pyramid")
+        build_spec_pyramid(
+            src,
+            paths.spec_zarr(audio_id),
+            info.sr,
+            cancel_event,
+            progress_cb=lambda frac: report(
+                progress_queue, 0.50 + 0.47 * frac, "building spectrogram pyramid"
             ),
             total_frames=info.frames or None,
         )
 
-        report(progress_queue, 0.98, "registering file")
+        report(progress_queue, 0.97, "registering file")
         with conn:
             conn.execute(
                 "INSERT OR REPLACE INTO audio_files "

@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import zarr
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from sse_starlette.sse import EventSourceResponse
 
 from indra import ENGINE_VERSION
@@ -22,6 +23,8 @@ from indra.api.schemas import (
     JobCreatedResponse,
     JobInfo,
     ProjectResponse,
+    SpecLod,
+    SpecManifest,
     WaveformLod,
 )
 from indra.jobs.registry import JobHandle, JobRegistry
@@ -114,6 +117,29 @@ async def file_manifest(request: Request, audio_id: str) -> FileManifest:
                     buckets=int(arr.shape[0]),
                 )
             )
+    spec_manifest: SpecManifest | None = None
+    spec_path = _paths(request).spec_zarr(audio_id)
+    if spec_path.exists():
+        spec_group = zarr.open_group(str(spec_path), mode="r")
+        attrs = dict(spec_group.attrs)
+        spec_lods = [
+            SpecLod(
+                lod=lod,
+                frames=int(spec_group[str(lod)].shape[0]),
+                frames_per_column=2**lod,
+            )
+            for lod in range(int(attrs["levels"]))
+        ]
+        spec_manifest = SpecManifest(
+            n_fft=int(attrs["n_fft"]),
+            hop=int(attrs["hop"]),
+            window=str(attrs["window"]),
+            n_bins=int(attrs["n_bins"]),
+            db_min=float(attrs["db_min"]),
+            db_max=float(attrs["db_max"]),
+            mono_downmix=bool(attrs["mono_downmix"]),
+            lods=spec_lods,
+        )
     return FileManifest(
         id=str(row["id"]),
         sr=int(row["sr"]),
@@ -122,6 +148,76 @@ async def file_manifest(request: Request, audio_id: str) -> FileManifest:
         duration_s=float(row["duration_s"]),
         format=str(row["format"]),
         waveform_lods=lods,
+        spec=spec_manifest,
+    )
+
+
+def _open_zarr_or_404(path: Path, what: str, audio_id: str) -> zarr.Group:
+    if not path.exists():
+        raise ApiError(404, "not_found", f"no {what} pyramid for audio file: {audio_id}")
+    return zarr.open_group(str(path), mode="r")
+
+
+@router.get("/files/{audio_id}/waveform/tile")
+async def waveform_tile(
+    request: Request, audio_id: str, lod: int, start: int = 0, count: int = 4096
+) -> Response:
+    group = _open_zarr_or_404(_paths(request).waveform_zarr(audio_id), "waveform", audio_id)
+    levels = int(group.attrs["levels"])
+    if not 0 <= lod < levels:
+        raise ApiError(400, "bad_request", f"lod must be in [0, {levels})", {"lod": lod})
+    arr = group[str(lod)]
+    n = int(arr.shape[0])
+    start = max(0, min(start, n))
+    end = max(start, min(start + max(count, 0), n))
+    tile = np.ascontiguousarray(arr[start:end])
+    return Response(
+        content=tile.tobytes(),
+        media_type="application/octet-stream",
+        headers={
+            "X-Indra-Tile-Shape": ",".join(str(dim) for dim in tile.shape),
+            "X-Indra-Tile-Dtype": "int16",
+            "X-Indra-Tile-Bounds": f"{start},{end}",
+        },
+    )
+
+
+@router.get("/files/{audio_id}/spec/tile")
+async def spec_tile(
+    request: Request,
+    audio_id: str,
+    lod: int,
+    t0: int = 0,
+    t1: int | None = None,
+    f0: int = 0,
+    f1: int | None = None,
+) -> Response:
+    group = _open_zarr_or_404(_paths(request).spec_zarr(audio_id), "spectrogram", audio_id)
+    levels = int(group.attrs["levels"])
+    if not 0 <= lod < levels:
+        raise ApiError(400, "bad_request", f"lod must be in [0, {levels})", {"lod": lod})
+    arr = group[str(lod)]
+    n_frames, n_bins = int(arr.shape[0]), int(arr.shape[1])
+    t0 = max(0, min(t0, n_frames))
+    t1 = n_frames if t1 is None else max(t0, min(t1, n_frames))
+    f0 = max(0, min(f0, n_bins))
+    f1 = n_bins if f1 is None else max(f0, min(f1, n_bins))
+    if (t1 - t0) * (f1 - f0) > 8 * 1024 * 1024:
+        raise ApiError(
+            400,
+            "bad_request",
+            "requested tile exceeds 8 MiB; request a smaller window or higher lod",
+            {"frames": t1 - t0, "bins": f1 - f0},
+        )
+    tile = np.ascontiguousarray(arr[t0:t1, f0:f1])
+    return Response(
+        content=tile.tobytes(),
+        media_type="application/octet-stream",
+        headers={
+            "X-Indra-Tile-Shape": f"{tile.shape[0]},{tile.shape[1]}",
+            "X-Indra-Tile-Dtype": "uint8",
+            "X-Indra-Tile-Bounds": f"{t0},{t1},{f0},{f1}",
+        },
     )
 
 

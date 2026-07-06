@@ -17,9 +17,10 @@ tracks completion only.
 
 ## Phase 1 — Tile serving and IndraKit client
 
-- [ ] STFT tile pyramid (§6.4) via `librosa.stream`, multi-scale Zarr
-- [ ] Streaming vs full STFT equivalence test (§6.3) green — riskiest correctness assumption
-- [ ] `/spec/tile` and `/waveform/tile` binary endpoints with `X-Indra-Tile-*` headers
+- [x] STFT tile pyramid (§6.4) via `librosa.stream`, multi-scale Zarr
+- [x] Streaming vs full STFT equivalence test (§6.3) green — riskiest correctness assumption
+      (bit-identical; also proven for the bespoke pyav-path streamer)
+- [x] `/spec/tile` and `/waveform/tile` binary endpoints with `X-Indra-Tile-*` headers
 - [ ] `IndraKit` package: `IndraKitCore`, `IndraKitNet`, `IndraKitAppleGlue`
 - [ ] `APIClient` (URLSession + FoundationNetworking gate) covering every endpoint
 - [ ] SSE parser → `AsyncThrowingStream<SSEEvent, Error>`

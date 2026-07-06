@@ -55,6 +55,23 @@ class WaveformLod(BaseModel):
     buckets: int
 
 
+class SpecLod(BaseModel):
+    lod: int
+    frames: int
+    frames_per_column: int  # STFT hops aggregated per pyramid column
+
+
+class SpecManifest(BaseModel):
+    n_fft: int
+    hop: int
+    window: str
+    n_bins: int
+    db_min: float
+    db_max: float
+    mono_downmix: bool
+    lods: list[SpecLod]
+
+
 class FileManifest(BaseModel):
     id: str
     sr: int
@@ -63,6 +80,7 @@ class FileManifest(BaseModel):
     duration_s: float
     format: str
     waveform_lods: list[WaveformLod]
+    spec: SpecManifest | None = None
     features: list[str] = Field(default_factory=list)
 
 

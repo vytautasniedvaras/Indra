@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 0 complete (PR #1 open) → Phase 1 — Tile serving and IndraKit client
+- **Current phase**: Phase 1 — Tile serving and IndraKit client (backend half done)
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 (Phase 0 code complete; PR pending)
 
@@ -34,6 +34,19 @@
 - [x] Coverage 81 % (gate 70); ruff + mypy --strict clean; CI green pending first push
 - [x] Phase 0 DoD verified live: `curl -N` SSE with ETA; cancel latency 0.27 s
 - [x] Phase 0 PR opened: https://github.com/vytautasniedvaras/Indra/pull/1 (smoke test in PR body)
+
+## Phase 1 task checklist
+
+- [x] STFT streaming equivalence validated (riskiest assumption): librosa.stream AND bespoke
+      pyav-path streamer bit-identical to full STFT (tests/test_stft.py)
+- [x] uint8 dB multi-scale spec pyramid (7-term Blackman-Harris per Albrecht 2001, Blosc+Zstd
+      bitshuffle, max-pool LODs, 0 dB = full-scale sine) wired into import step 4
+- [x] `/waveform/tile` + `/spec/tile` binary endpoints with X-Indra-Tile-* headers
+- [ ] IndraKit Swift package (Core/Net/AppleGlue) with swift-testing on Linux via Docker
+- [ ] APIClient covering every endpoint + SSE parser (AsyncThrowingStream)
+- [ ] TileCache, EditorState, reducer, undo stack (Linux-tested)
+- [ ] dev/api_probe.html throwaway probe
+- [ ] CI green for backend + indrakit jobs (Actions unlocked after user's Pro upgrade — verify)
 
 ## Deviations from BUILD_SPEC.md
 

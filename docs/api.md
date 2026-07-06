@@ -33,8 +33,21 @@ imported_at }`.
 
 ### `GET /files/{audio_id}/manifest`
 `{ id, sr, channels, frames, duration_s, format, waveform_lods: [ { lod, bucket_samples,
-buckets } ], features: [] }`. Waveform pyramid: 8 LODs, base bucket 256 samples, int16
-min/max per (bucket, channel).
+buckets } ], spec: {...} | null, features: [] }`. Waveform pyramid: 8 LODs, base bucket 256
+samples, int16 min/max per (bucket, channel). `spec` (present once ingested):
+`{ n_fft: 4096, hop: 1024, window: "blackmanharris7", n_bins: 2049, db_min: -100, db_max: 0,
+mono_downmix: true, lods: [ { lod, frames, frames_per_column } ] }`.
+
+### `GET /files/{audio_id}/waveform/tile?lod=&start=&count=` (binary)
+`application/octet-stream`, little-endian int16, C-order `(count, channels, 2)` with the last
+axis (min, max). Headers: `X-Indra-Tile-Shape: count,channels,2`, `X-Indra-Tile-Dtype: int16`,
+`X-Indra-Tile-Bounds: start,end`. Ranges clamp to available buckets; 400 on bad lod.
+
+### `GET /files/{audio_id}/spec/tile?lod=&t0=&t1=&f0=&f1=` (binary)
+uint8 dB slab, C-order `(frames, bins)`; t0/t1 are frame indices at the requested LOD,
+f0/f1 bin indices (defaults: full range). Mapping: 0..255 ⇔ -100..0 dB, 0 dB = full-scale
+sine. Headers: `X-Indra-Tile-Shape: frames,bins`, `X-Indra-Tile-Dtype: uint8`,
+`X-Indra-Tile-Bounds: t0,t1,f0,f1`. Ranges clamp; requests over 8 MiB are rejected (400).
 
 ### `POST /analyze`
 Body `{ "kind": str, "audio_id": str = "", "params": {} }` → `{ "job_id": str }`.

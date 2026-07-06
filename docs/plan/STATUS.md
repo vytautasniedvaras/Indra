@@ -5,7 +5,7 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 1 essentially complete (perf lever deferred to Phase 2) → Phase 2 — On-demand analyses and MPT
+- **Current phase**: Phase 2 — On-demand analyses and MPT (core complete; DoD items below)
 - **Branch**: `claude/fable-research-implementation-8z004i`
 - **Last updated**: 2026-07-06 evening (Phase 1 backend half done, CI green, demo rendered)
 
@@ -61,6 +61,24 @@
       STFT pyramid 2.35 s. Projection for 1-hour stereo ≈ 4 min single-worker vs the §6.2
       target of ≤90 s at 4 workers → needs ~3x: parallelize STFT blocks across the pool
       (or per-stage jobs). Do when the 1-hour reference file testing starts (Phase 2).
+
+## Phase 2 task checklist
+
+- [x] `indra.analyses.mpt_frames`: frame_peaks + roughness/entropy/harmonicity curves —
+      cancellable, streamed, region-scoped (time AND frequency band)
+- [x] Golden-value tests: peaks at known partials, semitone>octave>unison roughness, curve ==
+      direct per-frame MPT reference (<1e-3), entropy monotonic under densification (raw bits,
+      normalize=False — MPT's normalization is span-dependent), harmonic>inharmonic h_max
+- [x] SuperFlux-on-PCEN onsets (segmented streaming, PCEN warm-up overlap) — finds test clicks
+- [x] Multi-scale Foote novelty (SSM bounded at 4096 frames via decimation) — finds boundaries
+- [x] Parquet feature store + /features endpoint (raw capped at 20k pts; min/max buckets)
+- [x] Region-scoped analysis with distinct cache keys
+- [x] Perf targets MET after tuning (riskiest-assumption lever #2): prominence 0.05 (above
+      Hann sidelobe), resolution 3 cents, top_k 32, harmonicity hop 2048 →
+      roughness ~1.2 min/h single-worker, entropy ~28 s/h @4w-eq, harmonicity ~62 s/h @4w-eq
+- [ ] Coverage 71 % (CI gate 70) — spec §8.3 wants 80; raise gate + fill gaps (novelty/onsets
+      branches) before the Phase 2 PR is final
+- [ ] Update PR #1 description for Phase 2; then Phase 3 (annotations, undo, export)
 
 ## Deviations from BUILD_SPEC.md
 

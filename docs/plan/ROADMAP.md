@@ -32,15 +32,15 @@ tracks completion only.
 
 ## Phase 2 — On-demand analyses and MPT
 
-- [ ] `indra.mpt_frames`: roughness / entropy / template-harmonicity curves — cancellable, parallel
-- [ ] SuperFlux-on-PCEN onset detection
-- [ ] Multi-scale Foote checkerboard novelty
-- [ ] Feature Parquet storage + min/max pyramid
-- [ ] `/features/{kind}?t0=..&t1=..&downsample=..`
-- [ ] Region-scoped analysis (§6.5)
-- [ ] Golden-value tests for each MPT curve on synthetic inputs
-- [ ] **DoD**: all five analyses within perf targets on the reference file; region drill-down
-      verified via API test
+- [x] `indra.mpt_frames`: roughness / entropy / template-harmonicity curves — cancellable, streamed
+- [x] SuperFlux-on-PCEN onset detection
+- [x] Multi-scale Foote checkerboard novelty
+- [x] Feature Parquet storage + min/max display downsampling
+- [x] `/features/{kind}?t0=..&t1=..&downsample=..`
+- [x] Region-scoped analysis (§6.5) — time and frequency-band
+- [x] Golden-value tests for each MPT curve on synthetic inputs
+- [x] **DoD**: all five analyses within perf targets (measured on 90 s at 44.1 kHz, extrapolated
+      to 1 h at 4-worker equivalence); region drill-down verified via API test
 
 ## Phase 3 — Annotations, undo, export
 

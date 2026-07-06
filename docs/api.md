@@ -50,10 +50,29 @@ sine. Headers: `X-Indra-Tile-Shape: frames,bins`, `X-Indra-Tile-Dtype: uint8`,
 `X-Indra-Tile-Bounds: t0,t1,f0,f1`. Ranges clamp; requests over 8 MiB are rejected (400).
 
 ### `POST /analyze`
-Body `{ "kind": str, "audio_id": str = "", "params": {} }` → `{ "job_id": str }`.
-Phase 0 kinds: `debug_slow` (test/probe job; params `steps`, `step_s`, `fail_at`).
-400 on unknown kind. Cacheable kinds short-circuit to a `done` job on a content-addressed
-cache hit (key = blake3 of audio hash | kind | canonical params | engine version).
+Body `{ "kind": str, "audio_id": str = "", "params": {}, "region": { t0?, t1?, f0?, f1? } | null }`
+→ `{ "job_id": str }`. 400 on unknown kind; analysis kinds require `audio_id`. Cacheable kinds
+short-circuit to a `done` job on a content-addressed cache hit (key = blake3 of audio hash |
+kind | canonical params | engine version); `region` participates in the key.
+
+Analysis kinds (Phase 2), all cancellable + cached, results as Parquet feature tables:
+
+| kind | params (defaults) | result value column(s) |
+|---|---|---|
+| `roughness_mpt` | n_fft 4096, hop 1024, top_k 64, min_prominence (rel 0.05), p_norm 1, average false | `value` |
+| `spectral_entropy_mpt` | …, top_k 32, sigma_cents 10, resolution 3 (cents/grid pt), raw Shannon bits | `value` |
+| `template_harmonicity_mpt` | …, hop 2048, top_k 32, sigma_cents 10, resolution 3 | `value` (h_max), `h_entropy` |
+| `onsets_superflux_pcen` | n_fft 1024, hop sr/200, n_mels 138, fmin 27.5, fmax 16000 | `value` (envelope), `is_onset`; result_ref carries `onsets {t, strength}` |
+| `foote_novelty_multiscale` | feature mfcc\|chroma, scales_s [8,32,128], hop 2048 | `novelty_<scale>s` per scale |
+
+`debug_slow` remains as the test/probe job.
+
+### `GET /files/{audio_id}/features/{kind}?t0=&t1=&downsample=&key=`
+Serves a computed feature table. `key` selects a specific cached variant (from the job's
+`result_ref.cache_key`); otherwise the most recently computed variant of that kind. Raw values
+(`values: { time_s, <column>… }`) are capped at 20 000 points — pass `downsample=<buckets>`
+for min/max buckets per column (`buckets: { <column>: { t, min, max } }`) at display width
+(§4.4). 404 if never computed or evicted.
 
 ### `GET /jobs` · `GET /jobs/{job_id}`
 Job snapshot: `{ id, kind, state, progress, message, eta_s, created_at, started_at,

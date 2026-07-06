@@ -49,13 +49,24 @@ def _import_audio(
     return run_import(spec, cancel_event, progress_queue)
 
 
+def _run_analysis(
+    spec: dict[str, Any], cancel_event: CancelEvent, progress_queue: ProgressQueue
+) -> dict[str, Any]:
+    from indra.analyses.runner import run_analysis
+
+    return run_analysis(spec, cancel_event, progress_queue)
+
+
+from indra.analyses.runner import ANALYSIS_KINDS  # noqa: E402
+
 WORKERS: dict[str, WorkerFn] = {
     "debug_slow": debug_slow,
     "import": _import_audio,
+    **{kind: _run_analysis for kind in ANALYSIS_KINDS},
 }
 
 # Kinds whose results are memoized in the content-addressed cache (§4.6).
-CACHEABLE_KINDS: frozenset[str] = frozenset({"debug_slow"})
+CACHEABLE_KINDS: frozenset[str] = frozenset({"debug_slow"}) | ANALYSIS_KINDS
 
 
 def run_worker(

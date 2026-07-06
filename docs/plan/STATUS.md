@@ -16,8 +16,10 @@
 - Run straight through Phases 0–3; never block on Mac smoke tests (queue them in
   `docs/plan/SMOKE_TESTS.md` and phase-boundary GitHub issues).
 - Contact user only at spec §10.5 boundaries: GitHub `Question:` issue + session chat message.
-- **Commit messages: NO attribution trailers** (no Co-Authored-By, no Claude-Session links) —
-  user request 2026-07-06. Plain conventional-commit messages only.
+- **Commit message style (user request 2026-07-06)**: a single short line, functional,
+  as few characters as readability allows; conventional prefix (feat:/fix:/docs:/test:/chore:).
+  No bodies unless genuinely necessary, NO attribution trailers, NO session links.
+  Example: `feat: STFT tile pyramid + tile endpoints`.
 
 ## Phase 0 task checklist
 

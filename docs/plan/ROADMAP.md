@@ -44,11 +44,11 @@ tracks completion only.
 
 ## Phase 3 — Annotations, undo, export
 
-- [ ] Annotation CRUD API + SQLite schema
-- [ ] `HistoryManager` with RFC-6902 patch log (§7)
-- [ ] `/undo`, `/redo`, `/history`
-- [ ] Swift-side mirror: reducer + UndoManager integration, selection-as-state
-- [ ] Export endpoint (§6.6), JSON + CSV, schema documented in `docs/export_schema.md`
+- [x] Annotation CRUD API + SQLite schema (v2: AUTOINCREMENT ids)
+- [x] `HistoryManager` with RFC-6902 patch log (§7)
+- [x] `/undo`, `/redo`, `/history`
+- [ ] Swift-side mirror: reducer + DocumentStore, selection-as-state (agent in flight)
+- [x] Export endpoint (§6.6), JSON + CSV, schema documented in `docs/export_schema.md`
 - [ ] **DoD**: full data path for the 1-hour noisescape — import, analyze, annotate, undo/redo,
       export JSON that drives an external visual pipeline
 

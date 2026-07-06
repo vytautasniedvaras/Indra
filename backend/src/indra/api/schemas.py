@@ -156,6 +156,20 @@ class HistoryEntry(BaseModel):
     action_name: str
 
 
+class MaskSpec(BaseModel):
+    t0: float
+    t1: float
+    f0: float | None = None
+    f1: float | None = None
+    fade_hz: float | None = None
+    fade_ms: float | None = None
+
+
+class AuditionRequest(BaseModel):
+    audio_id: str
+    mask: MaskSpec
+
+
 class ExportRequest(BaseModel):
     audio_id: str
     kinds: list[str] = Field(default_factory=list)

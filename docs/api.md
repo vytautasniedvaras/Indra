@@ -87,6 +87,13 @@ redo_stack_depth }`; 409 `nothing_to_undo` / `nothing_to_redo` on empty stacks. 
 forward action invalidates the redo branch. `GET /history` → last 100
 `{ id, ts, scope, action_name }` ("Undo Add annotation" menu naming).
 
+### `POST /audition` (Phase 4, §5.5, ADR 0008)
+`{ "audio_id": str, "mask": { t0, t1, f0?, f1?, fade_hz?, fade_ms? } }` → `{ "job_id" }`.
+Renders the time-frequency box in isolation (STFT → raised-cosine band mask → ISTFT, time-edge
+fades) to a scratch WAV; job `result_ref` = `{ audition_id, wav_path (relative to project
+root), t0, t1, f0, f1, sr, channels, duration_s }`. Mask-hash cached (identical mask →
+instant `done` with the same `audition_id`). Selections capped at 600 s.
+
 ### `POST /export` (Phase 3, §6.6)
 `{ audio_id, kinds: [feature kinds], format: "json" | "csv", region? }` → attachment
 (JSON document or zip of features.csv/annotations.csv/onsets.csv/manifest.json).

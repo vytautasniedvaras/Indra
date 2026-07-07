@@ -23,6 +23,54 @@ from indra.jobs.cancellation import CancelEvent, check_cancel
 SEGMENT_S = 60.0
 WARMUP_S = 2.0
 
+# librosa.onset.onset_detect's frame defaults, expressed in seconds (they are
+# computed as time*sr/hop internally). Kept here so a re-pick with no overrides
+# reproduces the original detection exactly.
+PICK_DEFAULTS = {
+    "delta": 0.07,
+    "wait_s": 0.03,
+    "pre_max_s": 0.03,
+    "post_max_s": 0.0,
+    "pre_avg_s": 0.10,
+    "post_avg_s": 0.10,
+}
+
+
+def pick_peaks(
+    envelope: NDArray[np.float32],
+    env_times: NDArray[np.float32],
+    params: dict[str, Any],
+) -> dict[str, NDArray[np.float32]]:
+    """Peak-pick an onset-strength envelope; the cheap, re-runnable half of detection.
+
+    `delta` is the sensitivity knob (envelope is normalized to [0,1], so it is
+    comparable across files); the *_s windows shape the local-max / local-mean
+    tests. Batch re-thresholding = call this again on the saved envelope with
+    different params — no PCEN/SuperFlux recomputation.
+    """
+    import librosa.onset
+
+    if len(envelope) < 2:
+        empty = np.zeros(0, dtype=np.float32)
+        return {"onset_t": empty, "onset_strength": empty}
+    dt = float(env_times[1] - env_times[0])
+    sr_eff = 1.0 / dt  # envelope frame rate; frames == samples at hop 1
+    merged = {**PICK_DEFAULTS, **{k: float(v) for k, v in params.items() if k in PICK_DEFAULTS}}
+    peak_indices = librosa.onset.onset_detect(  # type: ignore[attr-defined]
+        onset_envelope=envelope,
+        sr=sr_eff,
+        hop_length=1,
+        units="frames",
+        backtrack=False,
+        delta=merged["delta"],
+        wait=max(1, int(merged["wait_s"] * sr_eff)),
+        pre_max=max(1, int(merged["pre_max_s"] * sr_eff)),
+        post_max=max(1, int(merged["post_max_s"] * sr_eff) + 1),
+        pre_avg=max(1, int(merged["pre_avg_s"] * sr_eff)),
+        post_avg=max(1, int(merged["post_avg_s"] * sr_eff) + 1),
+    )
+    return {"onset_t": env_times[peak_indices], "onset_strength": envelope[peak_indices]}
+
 
 def detect_onsets(
     path: Path,
@@ -99,13 +147,6 @@ def detect_onsets(
 
     envelope = np.concatenate(envelope_parts)
     check_cancel(cancel_event)
-    peak_indices = librosa.onset.onset_detect(  # type: ignore[attr-defined]
-        onset_envelope=envelope, sr=sr, hop_length=hop, units="frames", backtrack=False
-    )
     env_times = (t0 + np.arange(len(envelope)) * hop / sr).astype(np.float32)
-    return {
-        "onset_t": env_times[peak_indices],
-        "onset_strength": envelope[peak_indices],
-        "env_t": env_times,
-        "env": envelope,
-    }
+    picked = pick_peaks(envelope, env_times, params)
+    return {**picked, "env_t": env_times, "env": envelope}

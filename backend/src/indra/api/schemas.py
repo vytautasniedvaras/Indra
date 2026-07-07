@@ -205,6 +205,33 @@ class SelectSimilarRequest(BaseModel):
     use_features: list[str] = Field(default_factory=list)
 
 
+class OnsetRepickRequest(BaseModel):
+    """Re-run peak picking on a saved onset envelope — no recomputation.
+
+    Batch re-thresholding: the expensive PCEN/SuperFlux envelope is reused;
+    only the cheap pick runs. Omitted params fall back to the original pick.
+    """
+
+    audio_id: str
+    key: str | None = None  # specific cached onsets analysis; default = latest
+    delta: float | None = None  # sensitivity on the [0,1]-normalized envelope
+    wait_s: float | None = None  # minimum gap between onsets
+    pre_max_s: float | None = None
+    post_max_s: float | None = None
+    pre_avg_s: float | None = None
+    post_avg_s: float | None = None
+    region: Region | None = None  # re-pick only inside this time window
+
+
+class OnsetCommitRequest(BaseModel):
+    """Materialize picked onsets as point annotations — one undoable action."""
+
+    audio_id: str
+    times: list[float]
+    strengths: list[float] | None = None
+    label: str = "onset"
+
+
 class ExportRequest(BaseModel):
     audio_id: str
     kinds: list[str] = Field(default_factory=list)

@@ -31,6 +31,8 @@ from indra.api.schemas import (
     JobCreatedResponse,
     JobInfo,
     MagicSelectRequest,
+    OnsetCommitRequest,
+    OnsetRepickRequest,
     ProjectResponse,
     SelectSimilarRequest,
     SpecLod,
@@ -475,6 +477,88 @@ async def select_similar(request: Request, body: SelectSimilarRequest) -> JobCre
     }
     handle = _registry(request).submit("select_similar", params, audio_id=body.audio_id)
     return JobCreatedResponse(job_id=handle.id)
+
+
+@router.post("/onsets/repick")
+async def onsets_repick(request: Request, body: OnsetRepickRequest) -> dict[str, Any]:
+    """Batch re-thresholding: re-pick peaks on the SAVED envelope, synchronously.
+
+    The expensive PCEN/SuperFlux envelope is read back from the feature parquet;
+    only the millisecond-scale peak pick runs, so this returns directly instead
+    of spawning a job — cheap enough to drive a live slider.
+    """
+    from indra.analyses.onsets import pick_peaks
+
+    db = _db(request)
+    if body.key:
+        row = db.query_one(
+            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?", (body.key, body.audio_id)
+        )
+    else:
+        row = db.query_one(
+            "SELECT * FROM analysis_cache WHERE audio_id=? AND kind='onsets_superflux_pcen'"
+            " AND blob_path != '' ORDER BY created_at DESC LIMIT 1",
+            (body.audio_id,),
+        )
+    if row is None:
+        raise ApiError(404, "not_found", f"no computed onsets for {body.audio_id}; analyze first")
+    blob = _paths(request).root / str(row["blob_path"])
+    if not blob.exists():
+        raise ApiError(404, "not_found", "onset envelope missing (evicted); re-run analysis")
+    columns, _metadata = read_feature(blob)
+    times = np.asarray(columns["time_s"], dtype=np.float32)
+    envelope = np.asarray(columns["value"], dtype=np.float32)
+    if body.region is not None:
+        lo = int(np.searchsorted(times, body.region.t0)) if body.region.t0 is not None else 0
+        hi = int(np.searchsorted(times, body.region.t1)) if body.region.t1 is not None else None
+        times, envelope = times[lo:hi], envelope[lo:hi]
+    pick_params = {
+        k: v
+        for k, v in body.model_dump().items()
+        if k in ("delta", "wait_s", "pre_max_s", "post_max_s", "pre_avg_s", "post_avg_s")
+        and v is not None
+    }
+    picked = pick_peaks(envelope, times, pick_params)
+    return {
+        "audio_id": body.audio_id,
+        "source_key": str(row["key"]),
+        "params": pick_params,
+        "n": len(picked["onset_t"]),
+        "onsets": {
+            "t": [float(t) for t in picked["onset_t"]],
+            "strength": [float(s) for s in picked["onset_strength"]],
+        },
+    }
+
+
+@router.post("/onsets/commit")
+async def onsets_commit(request: Request, body: OnsetCommitRequest) -> dict[str, Any]:
+    """Materialize picked onsets as point annotations in ONE undoable action."""
+    row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
+    if row is None:
+        raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
+    if body.strengths is not None and len(body.strengths) != len(body.times):
+        raise ApiError(400, "bad_request", "strengths must match times in length")
+    fields_list = [
+        {
+            "audio_id": body.audio_id,
+            "t0": t,
+            "t1": t,
+            "label": body.label,
+            "note": None if body.strengths is None else f"strength={body.strengths[i]:.4g}",
+        }
+        for i, t in enumerate(body.times)
+    ]
+    try:
+        rows = _history(request).create_annotations_batch(
+            fields_list, f"Commit {len(fields_list)} onsets"
+        )
+    except HistoryError as exc:
+        raise _guard_history(exc) from exc
+    return {
+        "created": len(rows),
+        "annotations": [AnnotationRecord(**r).model_dump() for r in rows],
+    }
 
 
 @router.post("/export")

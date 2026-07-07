@@ -5,9 +5,10 @@
 > meaningful work chunk. The authoritative design is `docs/BUILD_SPEC.md`; deviations recorded
 > here (and in ADRs when architectural) override it.
 
-- **Current phase**: Phase 4 — Native UI (harness app + audition + render math done; Metal canvas next)
+- **Current phase**: Phase 4 — FEATURE-COMPLETE, backlog empty, all CI green (backend +
+  Linux Swift + macOS Swift). Awaiting Mac smoke test (SMOKE_TESTS items 6-7) and PR #1 merge.
 - **Branch**: `claude/fable-research-implementation-8z004i`
-- **Last updated**: 2026-07-06 late (Phase 4 in progress; strategy shift — see note below)
+- **Last updated**: 2026-07-07 (Phase 4 complete; final review pass on UI commits pending)
 
 ## STRATEGY NOTE (2026-07-06, user directive)
 

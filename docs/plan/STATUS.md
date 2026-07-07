@@ -182,7 +182,12 @@ canvas cancels superseded work on file switch; seed-file-first pill rows.
 Deferred UI polish (backlog, not blocking): ringed seed star in the constellation;
 client-side distance re-threshold slider; lasso multi-segment selection + verbs; pill
 click scroll-to-match navigation; tap-and-hold live tolerance drag; audition feather
-(fade_hz/fade_ms) controls; onset lane UI over the repick/commit endpoints.
+(fade_hz/fade_ms) controls.
+
+- [x] Onset lane UI (ux §5): two-layer overlay (detected = yellow strength-stemmed ticks,
+      committed = mint full-height hairlines from onset annotations), live Sensitivity
+      slider (debounced /onsets/repick per tick), "Commit N onsets" (one server undo
+      step, store reloaded). SMOKE_TESTS item 7 covers verification.
 
 ## Deviations from BUILD_SPEC.md
 

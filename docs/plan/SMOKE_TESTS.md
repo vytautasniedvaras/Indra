@@ -52,6 +52,13 @@ message is fine). Items are grouped by phase and removed once confirmed.
      undoable (lens state).
    - **Memory**: on a 1-hour file, sustained pan/zoom keeps Metal texture memory roughly
      flat (~130–200 MB, Xcode memory gauge) — the atlas LRU is working.
+   - **Onset lane** (run the Onsets analysis first): “Show onsets” → yellow ticks with
+     strength-scaled stems along the top edge. Drag the Sensitivity slider — the tick set
+     updates live (each position is a millisecond re-pick of the saved envelope; watch the
+     count change, lower = more). “Commit N onsets” → mint full-height hairlines appear
+     (they are now point annotations; check the annotations table) and stay put while the
+     slider keeps changing the yellow layer. The commit is ONE server undo step —
+     `POST /undo` (or the History list) removes the whole batch.
    - **Find similar / constellation** (needs ≥2 imported files): drag a time selection
      around a distinctive sound → “Find similar”. A starfield appears (dot size =
      duration, color = cluster, brightness = closeness) beside per-file match pills.

@@ -1,0 +1,605 @@
+=== swift test --parallel ===
+[0/1] Planning build
+Building for debugging...
+[0/8] Write sources
+[5/8] Write swift-version--79AA4F9932D1E87A.txt
+[7/21] Emitting module IndraKitCore
+[8/27] Compiling IndraKitCore SpecAtlas.swift
+[9/27] Compiling IndraKitCore SpecRenderPlan.swift
+[10/27] Compiling IndraKitCore TileCache.swift
+[11/27] Compiling IndraKitCore TilePlanner.swift
+[12/27] Compiling IndraKitCore UndoStack.swift
+[13/27] Compiling IndraKitCore Viewport.swift
+[14/27] Compiling IndraKitCore FrequencyLUT.swift
+[15/27] Compiling IndraKitCore History.swift
+[16/27] Compiling IndraKitCore JSONValue.swift
+[17/27] Compiling IndraKitCore MagicSelection.swift
+[18/27] Compiling IndraKitCore Models.swift
+[19/27] Compiling IndraKitCore SimilarSearch.swift
+[20/27] Compiling IndraKitCore Colormaps.swift
+[21/27] Compiling IndraKitCore Constellation.swift
+[22/27] Compiling IndraKitCore CurveLane.swift
+[23/27] Compiling IndraKitCore DocumentStore.swift
+[24/27] Compiling IndraKitCore EditorState.swift
+[25/27] Compiling IndraKitCore FeatureTable.swift
+[26/45] Compiling IndraKitAppleGlue AppleGlue.swift
+[27/45] Emitting module IndraKitAppleGlue
+[28/45] Emitting module IndraKitNet
+[29/45] Compiling IndraKitNet HTTPTransport.swift
+[30/45] Compiling IndraKitNet APIClient.swift
+[31/46] Compiling IndraKitNet SSEParser.swift
+[32/51] Compiling IndraKitNetTests SSEParserTests.swift
+[33/51] Compiling IndraKitNetTests SelectSimilarOnsetEndpointTests.swift
+[34/52] Emitting module IndraKitNetTests
+[35/52] Compiling IndraKitNetTests APIClientTests.swift
+[36/52] Compiling IndraKitNetTests HistoryEndpointTests.swift
+[37/52] Compiling IndraKitCoreTests FrequencyLUTTests.swift
+[38/52] Compiling IndraKitCoreTests MagicSelectionTests.swift
+[39/52] Compiling IndraKitCoreTests ReducerTests.swift
+[40/52] Compiling IndraKitCoreTests ReviewPassTests.swift
+[41/52] Compiling IndraKitCoreTests SimilarSearchTests.swift
+[42/52] Compiling IndraKitCoreTests SpecAtlasTests.swift
+[43/57] Compiling IndraKitNetTests SelectionFeatureEndpointTests.swift
+[44/57] Emitting module IndraKitCoreTests
+[49/57] Compiling IndraKitCoreTests DocumentStoreTests.swift
+[50/57] Compiling IndraKitCoreTests FeatureTableTests.swift
+[51/57] Compiling IndraKitCoreTests SpecRenderPlanTests.swift
+[52/57] Compiling IndraKitCoreTests TileCacheTests.swift
+[53/57] Compiling IndraKitCoreTests TilePlannerTests.swift
+[54/57] Compiling IndraKitCoreTests UndoStackTests.swift
+[55/57] Compiling IndraKitCoreTests ViewportTests.swift
+[55/57] Write Objects.LinkFileList
+[56/57] Linking IndraKitPackageTests
+Build complete! (7.45s)
+◇ Test run started.
+↳ Testing Library Version: 124.4
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "SimilarSearchResult" started.
+◇ Suite "Viewport" started.
+◇ Suite "TileCache" started.
+◇ Suite "CurveLane server rebucketing" started.
+◇ Suite "Magic selection in EditorState" started.
+◇ Suite "AuditionResult" started.
+◇ Suite "MagicSelection bounds" started.
+◇ Suite "CurveLane" started.
+◇ Suite "SpecRenderPlanner" started.
+◇ Suite "FeatureTable" started.
+◇ Suite "TilePlanner" started.
+◇ Suite "FrequencyLUT" started.
+◇ Suite "Constellation hit test" started.
+◇ Suite "AtlasIndex" started.
+◇ Suite "LodFade" started.
+◇ Suite "UndoStack" started.
+◇ Suite "Colormap" started.
+◇ Suite "DocumentStore" started.
+◇ Suite "MagicSelection" started.
+◇ Suite "EditorReducer" started.
+◇ Suite "Codable wire types" started.
+◇ Suite "ConstellationLayout" started.
+◇ Suite "SSEParser" started.
+◇ Suite "Selection and feature endpoints" started.
+◇ Suite "APIClient" started.
+◇ Suite "APIClient annotations + undo/history" started.
+◇ Suite "Similar-search and onset endpoints" started.
+◇ Test nonSearchPayloadIsNil() started.
+◇ Test singleFileSegmentsHaveNoAudioId() started.
+◇ Test frequencyZoomMinSpanGuard() started.
+◇ Test parsesFolderWideResultWithEmbedding() started.
+◇ Test parsesCamelCasedKeys() started.
+◇ Test frequencyPanClamps() started.
+◇ Test linearFrequencyMapping() started.
+◇ Test zoomOutClampsToDuration() started.
+◇ Test zoomKeepsAnchorFixedOnScreen() started.
+◇ Test frequencyZoomKeepsAnchorFixed() started.
+◇ Test logFrequencyMapping() started.
+◇ Test logFrequencyFloorApplied() started.
+◇ Test timesOutsideRangeMapOffScreen() started.
+◇ Test initNormalizesBoundsAndClampsSize() started.
+◇ Test zoomInClampsToMinSpan() started.
+◇ Test frequencyScaleCases() started.
+◇ Test removeByAudioId() started.
+◇ Test replaceSameKeyAccountsBytes() started.
+◇ Test timeToXRoundTrip() started.
+◇ Test lruEviction() started.
+◇ Test insertAndFetch() started.
+◇ Test keyStability() started.
+◇ Test preservesServerExtremes() started.
+◇ Test panClampsAtFileEdges() started.
+◇ Test identityOnSameId() started.
+◇ Test switchingFilesClearsIt() started.
+◇ Test undoStackRoundTripsMagicSelection() started.
+◇ Test setAndClearAreUndoableActions() started.
+◇ Test parsesBothKeySpellingsAndResolvesPath() started.
+◇ Test boundsSpanAllRibbons() started.
+◇ Test viewportNarrowerThanData() started.
+◇ Test valueRangeIgnoresNonFinite() started.
+◇ Test normalizedScalar() started.
+◇ Test emptyInputYieldsAllNilColumns() started.
+◇ Test mismatchedLengthsUseShorterCount() started.
+◇ Test normalizedAllNilPassesThrough() started.
+◇ Test extremaArePreserved() started.
+◇ Test nonFiniteValuesSkipped() started.
+◇ Test degenerateViewportYieldsEmpty() started.
+◇ Test normalizedBucketsFixedRange() started.
+◇ Test normalizedBucketsAutoRange() started.
+◇ Test singlePoint() started.
+◇ Test samplesInSameColumnMerge() started.
+◇ Test residentTileBecomesQuadWithScreenAndTextureCoords() started.
+◇ Test partialEdgeTileClampsTextureRange() started.
+◇ Test decodesBucketsWithVerbatimColumnKeys() started.
+◇ Test fetchKeysAreFullBandRegardlessOfFrequencyZoom() started.
+◇ Test missingTileIsReportedWithoutPlaceholderWhenNothingResident() started.
+◇ Test decodesRawValuesMode() started.
+◇ Test lodOverrideForcesPlanLod() started.
+◇ Test bucketSeriesFeedsCurveLaneDownsampling() started.
+◇ Test coarserResidentTileStretchesAsPlaceholder() started.
+◇ Test planIsDeterministic() started.
+◇ Test specTilesDeterministic() started.
+◇ Test placeholderSkipsToCoarserLodWhenIntermediateMissing() started.
+◇ Test specLodClampsToMaxLod() started.
+◇ Test waveformTilesClampAtFileEnd() started.
+◇ Test specLodZeroWhenZoomedIn() started.
+◇ Test specTilesClampAtFileStart() started.
+◇ Test specLodIntermediateZoom() started.
+◇ Test waveformLodSelection() started.
+◇ Test waveformTilesCoverViewportPlusMargin() started.
+◇ Test waveformTilesEmptyPastFileEnd() started.
+◇ Test specLodMidZoom() started.
+◇ Test columnConversionRoundTrip() started.
+◇ Test specTilesCarryViewportBinRange() started.
+◇ Test specTilesCoverViewportPlusMarginWithoutGaps() started.
+◇ Test linearMatchesViewportMapping() started.
+◇ Test emptyManifestsYieldNoTiles() started.
+◇ Test specTilesClampAtFileEnd() started.
+◇ Test degenerateInputsYieldEmptyTable() started.
+◇ Test outOfRangeFrequenciesClampToEdgeBins() started.
+◇ Test binConversionClamps() started.
+◇ Test specTilesEmptyPastFileEnd() started.
+◇ Test linearFullBandSpansTheBinRange() started.
+◇ Test picksTheDotUnderThePoint() started.
+◇ Test tinyDotsKeepAMinimumHitRadius() started.
+◇ Test logScaleUsesViewportLogMapping() started.
+◇ Test slotOfMissingKeyIsNil() started.
+◇ Test markUsedProtectsDrawnTiles() started.
+◇ Test removeAllResets() started.
+◇ Test evictsLeastRecentlyUsedWhenFull() started.
+◇ Test reallocatingResidentKeyKeepsSlot() started.
+◇ Test allocatesFreshSlotsUntilFull() started.
+◇ Test slotLookupRefreshesRecency() started.
+◇ Test freshFadeIsSettled() started.
+◇ Test rapidRetargetFadesFromLatestDrawnLod() started.
+◇ Test retargetToSameLodIsNoOp() started.
+◇ Test settledDropsPreviousOnlyWhenComplete() started.
+◇ Test noOpApplyRecordsNothing() started.
+◇ Test applyUndoRedo() started.
+◇ Test retargetRampsAlphaOverDuration() started.
+◇ Test limitBoundsMemory() started.
+◇ Test actionNamesForMenus() started.
+◇ Test clearHistory() started.
+◇ Test undoDuringCoalescingClosesGroupFirst() started.
+◇ Test coalescedDragIsOneStep() started.
+◇ Test selectionAsStateUndo() started.
+◇ Test newActionInvalidatesRedo() started.
+◇ Test coalescedNoChangeRecordsNothing() started.
+◇ Test lutSpansDarkToBright(colormap:) started.
+◇ Test viridisLumaNonDecreasingWithinTolerance() started.
+◇ Test lutIs256RGBA8(colormap:) started.
+◇ Test viridisKnownEndpoints() started.
+◇ Test grayLumaStrictlyIncreasing() started.
+◇ Test interpolationIsPiecewiseLinear() started.
+◇ Test endpointsMatchAnchors(colormap:) started.
+◇ Test allCasesPresent() started.
+◇ Test alphaIsOpaqueEverywhere(colormap:) started.
+◇ Test grayIsIdentityRamp() started.
+◇ Test mixedHistorySyncsOnlyAnnotationSteps() started.
+◇ Test dragNameMatchesReducerActionName() started.
+◇ Test noOpDispatchRecordsNothingAndNeverSyncs() started.
+◇ Test syncFailuresAreLoggedNotThrown() started.
+◇ Test unsyncedAnnotationEditLogsInsteadOfForwarding() started.
+◇ Test clearHistoryOnSaveKeepsState() started.
+◇ Test newDispatchInvalidatesRedo() started.
+◇ Test dispatchUndoRedoRoundTrip() started.
+◇ Test menuActionNames() started.
+◇ Test annotationActionsForwardToSync() started.
+◇ Test localActionsNeverTouchSync() started.
+◇ Test rectsDropSlicesAndIntervalsOutsideTheViewport() started.
+◇ Test annotationUndoRedoRoundTripsToBackend() started.
+◇ Test scopeNamesMatchEditorActionNames() started.
+◇ Test dragCoalescesToOneStep() started.
+◇ Test parsesResultRefWithConvertedKeys() started.
+◇ Test malformedRibbonEntriesAreSkippedNotFatal() started.
+◇ Test rejectsNonMagicResultRef() started.
+◇ Test rectsMapRibbonsThroughViewportMath() started.
+◇ Test annotationLifecycle() started.
+◇ Test selectionNormalizesBounds() started.
+◇ Test determinism() started.
+◇ Test switchingFileClearsSelection() started.
+◇ Test identityOnNoOps() started.
+◇ Test lensToggle() started.
+◇ Test jobInfoResultRef() started.
+◇ Test manifestDecodesWithoutSpec() started.
+◇ Test editorStateRoundTrip() started.
+◇ Test sessionInfoRoundTrip() started.
+◇ Test annotationCreateEncodesSnakeCaseAndOmitsNil() started.
+◇ Test actionNames() started.
+◇ Test errorEnvelope() started.
+◇ Test manifestDecodesWithSpec() started.
+◇ Test jobInfoDecodesBackendJSON() started.
+◇ Test undoResponseDecodesSnakeCase() started.
+◇ Test annotationRecordDecodesSnakeCase() started.
+◇ Test historyEntryDecodesSnakeCase() started.
+◇ Test jsonValueRoundTrip() started.
+◇ Test annotationRecordRoundTrip() started.
+◇ Test annotationPatchRoundTripKeepsOnlySetFields() started.
+◇ Test radiusGrowsWithDurationAndIsClamped() started.
+◇ Test clusterHuesAreDistinct() started.
+◇ Test normalizesIntoPaddedUnitSquare() started.
+◇ Test commentAndKeepAliveIgnored() started.
+◇ Test degenerateAxisCollapsesToCenter() started.
+◇ Test noEmbeddingMeansNoDots() started.
+◇ Test simpleEvent() started.
+◇ Test noSpaceAfterColon() started.
+◇ Test blankLineWithoutDataDispatchesNothing() started.
+◇ Test eventSplitAcrossChunks() started.
+◇ Test crlfLineEndings() started.
+◇ Test multipleEventsInOneChunk() started.
+◇ Test eventNameResetsBetweenEvents() started.
+◇ Test retryAndIdFields() started.
+◇ Test multiLineDataJoinsWithNewline() started.
+◇ Test featureTable404BecomesAPIError() started.
+◇ Test magicSelectPointSeed() started.
+◇ Test featureTableRequestsBucketsAtDisplayWidth() started.
+◇ Test importFilePostsJSONBody() started.
+◇ Test magicSelectPostsSeedAndOptions() started.
+◇ Test tileParsesHeaders() started.
+◇ Test errorEnvelopeBecomesAPIError() started.
+◇ Test jobEventsStreamDecodesAndFinishesOnTerminal() started.
+◇ Test bearerTokenOnEveryRequest() started.
+◇ Test historyDecodesEntries() started.
+◇ Test deleteAnnotationAccepts204() started.
+◇ Test createAnnotationPostsSnakeCaseBody() started.
+◇ Test deleteUnknownAnnotationIs404() started.
+◇ Test sessionFileDiscovery() started.
+◇ Test apiClientConformsToAnnotationSyncing() started.
+◇ Test updateAnnotationPatchesOnlySetFields() started.
+◇ Test cancellingConsumerCancelsBackendJob() started.
+◇ Test annotationsListSendsAudioIdQuery() started.
+◇ Test redoOnEmptyStackIsConflict() started.
+◇ Test undoDecodesResponse() started.
+◇ Test selectSimilarFolderWideSendsTargetsAndEmbed() started.
+◇ Test onsetsCommitRoundTrips() started.
+◇ Test auditionSegmentsModeSendsSpans() started.
+◇ Test auditionMaskModePassesRectangle() started.
+◇ Test selectSimilarSingleFileDefaultsOmitOptions() started.
+◇ Test onsetsRepickDecodesOnsets() started.
+◇ Test selectSimilarTargetIdsList() started.
+◇ Test auditionSelectionModeSendsSelectionIdAndFades() started.
+◇ Passing 1 argument colormap → .viridis to lutSpansDarkToBright(colormap:)
+◇ Passing 1 argument colormap → .magma to lutSpansDarkToBright(colormap:)
+◇ Passing 1 argument colormap → .inferno to lutSpansDarkToBright(colormap:)
+◇ Passing 1 argument colormap → .cividis to lutSpansDarkToBright(colormap:)
+◇ Passing 1 argument colormap → .viridis to lutIs256RGBA8(colormap:)
+◇ Passing 1 argument colormap → .magma to lutIs256RGBA8(colormap:)
+◇ Passing 1 argument colormap → .inferno to lutIs256RGBA8(colormap:)
+◇ Passing 1 argument colormap → .cividis to lutIs256RGBA8(colormap:)
+◇ Passing 1 argument colormap → .gray to lutIs256RGBA8(colormap:)
+◇ Passing 1 argument colormap → .viridis to endpointsMatchAnchors(colormap:)
+◇ Passing 1 argument colormap → .magma to endpointsMatchAnchors(colormap:)
+◇ Passing 1 argument colormap → .inferno to endpointsMatchAnchors(colormap:)
+◇ Passing 1 argument colormap → .cividis to endpointsMatchAnchors(colormap:)
+◇ Passing 1 argument colormap → .viridis to alphaIsOpaqueEverywhere(colormap:)
+◇ Passing 1 argument colormap → .magma to alphaIsOpaqueEverywhere(colormap:)
+◇ Passing 1 argument colormap → .inferno to alphaIsOpaqueEverywhere(colormap:)
+◇ Passing 1 argument colormap → .cividis to alphaIsOpaqueEverywhere(colormap:)
+◇ Passing 1 argument colormap → .gray to alphaIsOpaqueEverywhere(colormap:)
+✔ Test nonSearchPayloadIsNil() passed after 0.013 seconds.
+✔ Test frequencyZoomMinSpanGuard() passed after 0.013 seconds.
+✔ Test singleFileSegmentsHaveNoAudioId() passed after 0.013 seconds.
+✔ Test parsesCamelCasedKeys() passed after 0.013 seconds.
+✔ Test frequencyPanClamps() passed after 0.013 seconds.
+✔ Test parsesFolderWideResultWithEmbedding() passed after 0.013 seconds.
+✔ Test zoomOutClampsToDuration() passed after 0.013 seconds.
+✔ Test zoomKeepsAnchorFixedOnScreen() passed after 0.013 seconds.
+✔ Test linearFrequencyMapping() passed after 0.013 seconds.
+✔ Test frequencyZoomKeepsAnchorFixed() passed after 0.013 seconds.
+✔ Test timesOutsideRangeMapOffScreen() passed after 0.013 seconds.
+✔ Test logFrequencyFloorApplied() passed after 0.013 seconds.
+✔ Test logFrequencyMapping() passed after 0.013 seconds.
+✔ Test zoomInClampsToMinSpan() passed after 0.013 seconds.
+✔ Test initNormalizesBoundsAndClampsSize() passed after 0.013 seconds.
+✔ Test frequencyScaleCases() passed after 0.013 seconds.
+✔ Test timeToXRoundTrip() passed after 0.013 seconds.
+✔ Test replaceSameKeyAccountsBytes() passed after 0.013 seconds.
+✔ Test removeByAudioId() passed after 0.013 seconds.
+✔ Test lruEviction() passed after 0.013 seconds.
+✔ Test insertAndFetch() passed after 0.013 seconds.
+✔ Test keyStability() passed after 0.013 seconds.
+✔ Test panClampsAtFileEdges() passed after 0.013 seconds.
+✔ Test switchingFilesClearsIt() passed after 0.013 seconds.
+✔ Test identityOnSameId() passed after 0.013 seconds.
+✔ Test preservesServerExtremes() passed after 0.013 seconds.
+✔ Test setAndClearAreUndoableActions() passed after 0.013 seconds.
+✔ Test undoStackRoundTripsMagicSelection() passed after 0.013 seconds.
+✔ Test parsesBothKeySpellingsAndResolvesPath() passed after 0.013 seconds.
+✔ Test valueRangeIgnoresNonFinite() passed after 0.013 seconds.
+✔ Test boundsSpanAllRibbons() passed after 0.013 seconds.
+✔ Test viewportNarrowerThanData() passed after 0.013 seconds.
+✔ Test normalizedScalar() passed after 0.013 seconds.
+✔ Test emptyInputYieldsAllNilColumns() passed after 0.013 seconds.
+✔ Test mismatchedLengthsUseShorterCount() passed after 0.013 seconds.
+✔ Test normalizedAllNilPassesThrough() passed after 0.013 seconds.
+✔ Test degenerateViewportYieldsEmpty() passed after 0.013 seconds.
+✔ Test nonFiniteValuesSkipped() passed after 0.013 seconds.
+✔ Test extremaArePreserved() passed after 0.013 seconds.
+✔ Test normalizedBucketsFixedRange() passed after 0.013 seconds.
+✔ Test singlePoint() passed after 0.013 seconds.
+✔ Test samplesInSameColumnMerge() passed after 0.013 seconds.
+✔ Test residentTileBecomesQuadWithScreenAndTextureCoords() passed after 0.013 seconds.
+✔ Test normalizedBucketsAutoRange() passed after 0.013 seconds.
+✔ Test partialEdgeTileClampsTextureRange() passed after 0.013 seconds.
+✔ Test fetchKeysAreFullBandRegardlessOfFrequencyZoom() passed after 0.013 seconds.
+✔ Test missingTileIsReportedWithoutPlaceholderWhenNothingResident() passed after 0.013 seconds.
+✔ Test decodesRawValuesMode() passed after 0.013 seconds.
+✔ Test bucketSeriesFeedsCurveLaneDownsampling() passed after 0.013 seconds.
+✔ Test lodOverrideForcesPlanLod() passed after 0.013 seconds.
+✔ Test decodesBucketsWithVerbatimColumnKeys() passed after 0.013 seconds.
+✔ Test coarserResidentTileStretchesAsPlaceholder() passed after 0.013 seconds.
+✔ Test specTilesDeterministic() passed after 0.013 seconds.
+✔ Test specLodClampsToMaxLod() passed after 0.013 seconds.
+✔ Test placeholderSkipsToCoarserLodWhenIntermediateMissing() passed after 0.013 seconds.
+✔ Test planIsDeterministic() passed after 0.013 seconds.
+✔ Test specLodZeroWhenZoomedIn() passed after 0.013 seconds.
+✔ Test waveformTilesClampAtFileEnd() passed after 0.013 seconds.
+✔ Test specLodIntermediateZoom() passed after 0.013 seconds.
+✔ Test specTilesClampAtFileStart() passed after 0.013 seconds.
+✔ Test waveformTilesEmptyPastFileEnd() passed after 0.013 seconds.
+✔ Test specLodMidZoom() passed after 0.013 seconds.
+✔ Test columnConversionRoundTrip() passed after 0.013 seconds.
+✔ Test waveformLodSelection() passed after 0.013 seconds.
+✔ Test specTilesCarryViewportBinRange() passed after 0.013 seconds.
+✔ Test specTilesCoverViewportPlusMarginWithoutGaps() passed after 0.013 seconds.
+✔ Test linearMatchesViewportMapping() passed after 0.013 seconds.
+✔ Test emptyManifestsYieldNoTiles() passed after 0.013 seconds.
+✔ Test specTilesClampAtFileEnd() passed after 0.013 seconds.
+✔ Test degenerateInputsYieldEmptyTable() passed after 0.013 seconds.
+✔ Test waveformTilesCoverViewportPlusMargin() passed after 0.013 seconds.
+✔ Test outOfRangeFrequenciesClampToEdgeBins() passed after 0.013 seconds.
+✔ Test specTilesEmptyPastFileEnd() passed after 0.012 seconds.
+✔ Test binConversionClamps() passed after 0.013 seconds.
+✔ Test picksTheDotUnderThePoint() passed after 0.012 seconds.
+✔ Test tinyDotsKeepAMinimumHitRadius() passed after 0.012 seconds.
+✔ Test slotOfMissingKeyIsNil() passed after 0.012 seconds.
+✔ Test markUsedProtectsDrawnTiles() passed after 0.012 seconds.
+✔ Test evictsLeastRecentlyUsedWhenFull() passed after 0.012 seconds.
+✔ Test reallocatingResidentKeyKeepsSlot() passed after 0.012 seconds.
+✔ Test logScaleUsesViewportLogMapping() passed after 0.013 seconds.
+✔ Test allocatesFreshSlotsUntilFull() passed after 0.012 seconds.
+✔ Test slotLookupRefreshesRecency() passed after 0.012 seconds.
+✔ Test removeAllResets() passed after 0.012 seconds.
+✔ Test freshFadeIsSettled() passed after 0.012 seconds.
+✔ Test rapidRetargetFadesFromLatestDrawnLod() passed after 0.012 seconds.
+✔ Test retargetToSameLodIsNoOp() passed after 0.012 seconds.
+✔ Test settledDropsPreviousOnlyWhenComplete() passed after 0.012 seconds.
+✔ Test noOpApplyRecordsNothing() passed after 0.012 seconds.
+✔ Test retargetRampsAlphaOverDuration() passed after 0.012 seconds.
+✔ Test applyUndoRedo() passed after 0.012 seconds.
+✔ Test actionNamesForMenus() passed after 0.012 seconds.
+✔ Test clearHistory() passed after 0.012 seconds.
+✔ Test undoDuringCoalescingClosesGroupFirst() passed after 0.012 seconds.
+✔ Test coalescedDragIsOneStep() passed after 0.012 seconds.
+✔ Test selectionAsStateUndo() passed after 0.012 seconds.
+✔ Test newActionInvalidatesRedo() passed after 0.012 seconds.
+✔ Test limitBoundsMemory() passed after 0.012 seconds.
+✔ Test coalescedNoChangeRecordsNothing() passed after 0.012 seconds.
+✔ Test lutSpansDarkToBright(colormap:) passed after 0.012 seconds.
+✔ Test lutIs256RGBA8(colormap:) passed after 0.012 seconds.
+✔ Test viridisLumaNonDecreasingWithinTolerance() passed after 0.012 seconds.
+✔ Test viridisKnownEndpoints() passed after 0.012 seconds.
+✔ Test grayLumaStrictlyIncreasing() passed after 0.012 seconds.
+✔ Test linearFullBandSpansTheBinRange() passed after 0.013 seconds.
+✔ Test endpointsMatchAnchors(colormap:) passed after 0.012 seconds.
+✔ Test allCasesPresent() passed after 0.012 seconds.
+✔ Test interpolationIsPiecewiseLinear() passed after 0.012 seconds.
+✔ Test dragNameMatchesReducerActionName() passed after 0.012 seconds.
+✔ Test alphaIsOpaqueEverywhere(colormap:) passed after 0.012 seconds.
+✔ Test noOpDispatchRecordsNothingAndNeverSyncs() passed after 0.012 seconds.
+✔ Test clearHistoryOnSaveKeepsState() passed after 0.012 seconds.
+✔ Test newDispatchInvalidatesRedo() passed after 0.012 seconds.
+✔ Test dispatchUndoRedoRoundTrip() passed after 0.012 seconds.
+✔ Test menuActionNames() passed after 0.012 seconds.
+✔ Test localActionsNeverTouchSync() passed after 0.012 seconds.
+✔ Test scopeNamesMatchEditorActionNames() passed after 0.012 seconds.
+✔ Test rectsDropSlicesAndIntervalsOutsideTheViewport() passed after 0.012 seconds.
+✔ Test dragCoalescesToOneStep() passed after 0.012 seconds.
+✔ Test parsesResultRefWithConvertedKeys() passed after 0.012 seconds.
+✔ Test rejectsNonMagicResultRef() passed after 0.012 seconds.
+✔ Test malformedRibbonEntriesAreSkippedNotFatal() passed after 0.012 seconds.
+✔ Test annotationLifecycle() passed after 0.012 seconds.
+✔ Test selectionNormalizesBounds() passed after 0.012 seconds.
+✔ Test determinism() passed after 0.012 seconds.
+✔ Test switchingFileClearsSelection() passed after 0.012 seconds.
+✔ Test identityOnNoOps() passed after 0.012 seconds.
+✔ Test lensToggle() passed after 0.012 seconds.
+✔ Test rectsMapRibbonsThroughViewportMath() passed after 0.012 seconds.
+✔ Test manifestDecodesWithoutSpec() passed after 0.012 seconds.
+✔ Test grayIsIdentityRamp() passed after 0.013 seconds.
+✔ Test jobInfoResultRef() passed after 0.012 seconds.
+✔ Test annotationCreateEncodesSnakeCaseAndOmitsNil() passed after 0.012 seconds.
+✔ Test sessionInfoRoundTrip() passed after 0.012 seconds.
+✔ Test actionNames() passed after 0.012 seconds.
+✔ Test jobInfoDecodesBackendJSON() passed after 0.012 seconds.
+✔ Test errorEnvelope() passed after 0.012 seconds.
+✔ Test manifestDecodesWithSpec() passed after 0.012 seconds.
+✔ Test editorStateRoundTrip() passed after 0.012 seconds.
+✔ Test historyEntryDecodesSnakeCase() passed after 0.012 seconds.
+✔ Test undoResponseDecodesSnakeCase() passed after 0.012 seconds.
+✔ Test annotationRecordRoundTrip() passed after 0.012 seconds.
+✔ Test jsonValueRoundTrip() passed after 0.012 seconds.
+✔ Test annotationRecordDecodesSnakeCase() passed after 0.012 seconds.
+✔ Test clusterHuesAreDistinct() passed after 0.012 seconds.
+✔ Test radiusGrowsWithDurationAndIsClamped() passed after 0.012 seconds.
+✔ Test normalizesIntoPaddedUnitSquare() passed after 0.012 seconds.
+✔ Test degenerateAxisCollapsesToCenter() passed after 0.012 seconds.
+✔ Test noEmbeddingMeansNoDots() passed after 0.012 seconds.
+✔ Test annotationPatchRoundTripKeepsOnlySetFields() passed after 0.012 seconds.
+✔ Test simpleEvent() passed after 0.012 seconds.
+✔ Test noSpaceAfterColon() passed after 0.012 seconds.
+✔ Test commentAndKeepAliveIgnored() passed after 0.012 seconds.
+✔ Test blankLineWithoutDataDispatchesNothing() passed after 0.012 seconds.
+✔ Test crlfLineEndings() passed after 0.012 seconds.
+✔ Test eventSplitAcrossChunks() passed after 0.012 seconds.
+✔ Test eventNameResetsBetweenEvents() passed after 0.012 seconds.
+✔ Test multipleEventsInOneChunk() passed after 0.012 seconds.
+✔ Test retryAndIdFields() passed after 0.012 seconds.
+✔ Test multiLineDataJoinsWithNewline() passed after 0.012 seconds.
+✔ Test featureTable404BecomesAPIError() passed after 0.012 seconds.
+✔ Test featureTableRequestsBucketsAtDisplayWidth() passed after 0.012 seconds.
+✔ Test magicSelectPointSeed() passed after 0.012 seconds.
+✔ Test importFilePostsJSONBody() passed after 0.012 seconds.
+✔ Test magicSelectPostsSeedAndOptions() passed after 0.012 seconds.
+✔ Test errorEnvelopeBecomesAPIError() passed after 0.012 seconds.
+✔ Test tileParsesHeaders() passed after 0.012 seconds.
+✔ Test bearerTokenOnEveryRequest() passed after 0.012 seconds.
+✔ Test historyDecodesEntries() passed after 0.012 seconds.
+✔ Test deleteAnnotationAccepts204() passed after 0.012 seconds.
+✔ Test deleteUnknownAnnotationIs404() passed after 0.012 seconds.
+✔ Test createAnnotationPostsSnakeCaseBody() passed after 0.012 seconds.
+✔ Test apiClientConformsToAnnotationSyncing() passed after 0.012 seconds.
+✔ Test updateAnnotationPatchesOnlySetFields() passed after 0.012 seconds.
+✔ Test redoOnEmptyStackIsConflict() passed after 0.012 seconds.
+✔ Test annotationsListSendsAudioIdQuery() passed after 0.012 seconds.
+✔ Test undoDecodesResponse() passed after 0.012 seconds.
+✔ Test selectSimilarFolderWideSendsTargetsAndEmbed() passed after 0.012 seconds.
+✔ Test onsetsCommitRoundTrips() passed after 0.012 seconds.
+✔ Test auditionSegmentsModeSendsSpans() passed after 0.012 seconds.
+✔ Test auditionMaskModePassesRectangle() passed after 0.012 seconds.
+✔ Test selectSimilarSingleFileDefaultsOmitOptions() passed after 0.012 seconds.
+✔ Test selectSimilarTargetIdsList() passed after 0.012 seconds.
+✔ Test onsetsRepickDecodesOnsets() passed after 0.012 seconds.
+✔ Test auditionSelectionModeSendsSelectionIdAndFades() passed after 0.012 seconds.
+✔ Test sessionFileDiscovery() passed after 0.012 seconds.
+✔ Suite "SimilarSearchResult" passed after 0.015 seconds.
+✔ Suite "Viewport" passed after 0.015 seconds.
+✔ Suite "TileCache" passed after 0.015 seconds.
+✔ Suite "AuditionResult" passed after 0.015 seconds.
+✔ Suite "CurveLane server rebucketing" passed after 0.015 seconds.
+✔ Suite "Magic selection in EditorState" passed after 0.015 seconds.
+✔ Suite "MagicSelection bounds" passed after 0.015 seconds.
+✔ Suite "CurveLane" passed after 0.015 seconds.
+✔ Suite "SpecRenderPlanner" passed after 0.015 seconds.
+✔ Suite "FeatureTable" passed after 0.015 seconds.
+✔ Suite "FrequencyLUT" passed after 0.015 seconds.
+✔ Suite "Constellation hit test" passed after 0.015 seconds.
+✔ Suite "TilePlanner" passed after 0.015 seconds.
+✔ Suite "AtlasIndex" passed after 0.015 seconds.
+✔ Suite "LodFade" passed after 0.015 seconds.
+✔ Suite "UndoStack" passed after 0.015 seconds.
+✔ Suite "Colormap" passed after 0.015 seconds.
+✔ Test unsyncedAnnotationEditLogsInsteadOfForwarding() passed after 0.013 seconds.
+✔ Test annotationActionsForwardToSync() passed after 0.013 seconds.
+✔ Test annotationUndoRedoRoundTripsToBackend() passed after 0.013 seconds.
+✔ Suite "MagicSelection" passed after 0.015 seconds.
+✔ Test syncFailuresAreLoggedNotThrown() passed after 0.013 seconds.
+✔ Suite "ConstellationLayout" passed after 0.015 seconds.
+✔ Suite "EditorReducer" passed after 0.015 seconds.
+✔ Suite "Codable wire types" passed after 0.015 seconds.
+✔ Suite "Selection and feature endpoints" passed after 0.015 seconds.
+✔ Suite "SSEParser" passed after 0.015 seconds.
+✔ Suite "Similar-search and onset endpoints" passed after 0.015 seconds.
+✔ Suite "APIClient annotations + undo/history" passed after 0.015 seconds.
+✔ Test mixedHistorySyncsOnlyAnnotationSteps() passed after 0.013 seconds.
+✔ Suite "DocumentStore" passed after 0.015 seconds.
+✔ Test cancellingConsumerCancelsBackendJob() passed after 0.083 seconds.
+✔ Test jobEventsStreamDecodesAndFinishesOnTerminal() passed after 0.196 seconds.
+✔ Suite "APIClient" passed after 0.198 seconds.
+✔ Test run with 193 tests passed after 0.199 seconds.
+=== swift build ===
+[0/1] Planning build
+Building for debugging...
+[0/8] Write sources
+[4/8] Write swift-version--79AA4F9932D1E87A.txt
+[6/21] Emitting module IndraKitCore
+[7/27] Compiling IndraKitCore SpecAtlas.swift
+[8/27] Compiling IndraKitCore SpecRenderPlan.swift
+[9/27] Compiling IndraKitCore TileCache.swift
+[10/27] Compiling IndraKitCore TilePlanner.swift
+[11/27] Compiling IndraKitCore UndoStack.swift
+[12/27] Compiling IndraKitCore Viewport.swift
+[13/27] Compiling IndraKitCore FrequencyLUT.swift
+[14/27] Compiling IndraKitCore History.swift
+[15/27] Compiling IndraKitCore JSONValue.swift
+[16/27] Compiling IndraKitCore MagicSelection.swift
+[17/27] Compiling IndraKitCore Models.swift
+[18/27] Compiling IndraKitCore SimilarSearch.swift
+[19/27] Compiling IndraKitCore Colormaps.swift
+[20/27] Compiling IndraKitCore Constellation.swift
+[21/27] Compiling IndraKitCore CurveLane.swift
+[22/27] Compiling IndraKitCore DocumentStore.swift
+[23/27] Compiling IndraKitCore EditorState.swift
+[24/27] Compiling IndraKitCore FeatureTable.swift
+[25/32] Emitting module IndraKitAppleGlue
+[26/32] Compiling IndraKitAppleGlue AppleGlue.swift
+[27/32] Compiling IndraKitNet HTTPTransport.swift
+[28/33] Compiling IndraKitNet SSEParser.swift
+[29/33] Compiling IndraKitNet APIClient.swift
+[30/33] Emitting module IndraKitNet
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[31/45] Emitting module IndraApp
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta
+[32/50] Compiling IndraApp DebugCanvasView.swift
+[33/50] Compiling IndraApp ExportSupport.swift
+[34/50] Compiling IndraApp FileDetailView.swift
+[35/50] Compiling IndraApp IndraAppMain.swift
+[36/50] Compiling IndraApp PlaybackController.swift
+[37/50] Compiling IndraApp AnalysesPanel.swift
+[38/50] Compiling IndraApp AnnotationsPanel.swift
+[39/50] Compiling IndraApp AppModel.swift
+[40/50] Compiling IndraApp BackendController.swift
+[41/50] Compiling IndraApp ConstellationView.swift
+[42/50] Compiling IndraApp ContentView.swift
+[43/50] Compiling IndraApp SpectroCanvasModel.swift
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta
+[44/50] Compiling IndraApp SpectroCanvasView.swift
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta
+[45/50] Compiling IndraApp SpectroRenderer.swift
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta
+[46/50] Compiling IndraApp SpectrogramPane.swift
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta
+[47/50] Compiling IndraApp TransportView.swift
+/Users/runner/work/Indra/Indra/apple/IndraApp/Sources/IndraApp/SpectrogramPane.swift:226:20: error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+224 |     /// recomputation), and one-undo-step commit to the annotation layer.
+225 |     @MainActor
+226 |     private struct OnsetControls: View {
+    |                    `- error: declaration can not have multiple global actor attributes ('MainActor' and 'MainActor')
+227 |         let canvas: SpectroCanvasModel
+228 |         @State private var sensitivity = 0.07  // librosa's default delta

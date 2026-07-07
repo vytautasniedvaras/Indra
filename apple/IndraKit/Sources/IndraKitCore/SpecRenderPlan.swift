@@ -223,7 +223,10 @@ public struct LodFade: Sendable, Equatable {
     }
 
     public func isComplete(at now: Double) -> Bool {
-        previousLod == nil || now - startedAt >= Self.duration
+        // Defers to alpha() so the two can't disagree at the boundary (Double
+        // subtraction can land a hair under `duration`; alpha's Float rounding
+        // already treats that as fully faded in).
+        previousLod == nil || alpha(at: now) >= 1
     }
 
     /// Fade toward a new LOD. Same LOD: unchanged. During an unfinished fade

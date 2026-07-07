@@ -180,9 +180,13 @@ CurveLane.buckets(from:), MagicSelection.frequency/timeBounds); tile-fetch token
 canvas cancels superseded work on file switch; seed-file-first pill rows.
 
 Deferred UI polish (backlog, not blocking): ringed seed star in the constellation;
-client-side distance re-threshold slider; lasso multi-segment selection + verbs; pill
-click scroll-to-match navigation; tap-and-hold live tolerance drag; audition feather
-(fade_hz/fade_ms) controls.
+lasso multi-segment selection + verbs; tap-and-hold live tolerance drag; audition
+feather (fade_hz/fade_ms) controls.
+
+- [x] Constellation distance slider: client-side re-threshold (segments carry distances —
+      no re-search), dot layout stays stable while sliding; shown/total count.
+- [x] Pill navigation: same-file pill click scrolls the spectrogram to the match
+      (revealTime) + seeks; ⌥-click auditions; other-file pills audition.
 
 - [x] Onset lane UI (ux §5): two-layer overlay (detected = yellow strength-stemmed ticks,
       committed = mint full-height hairlines from onset annotations), live Sensitivity

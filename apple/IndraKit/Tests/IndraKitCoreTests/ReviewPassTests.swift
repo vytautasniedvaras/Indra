@@ -128,6 +128,25 @@ struct ConstellationHitTests {
                 == nil)
     }
 
+    @Test func lassoSelectsOnlyEnclosedCenters() {
+        // Around the left dot (0.25, 0.5) only.
+        let polygon = [[0.1, 0.3], [0.4, 0.3], [0.4, 0.7], [0.1, 0.7]]
+        #expect(ConstellationLayout.dotsInside(polygon: polygon, dots: dots) == [0])
+        // Around both.
+        let wide = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+        #expect(ConstellationLayout.dotsInside(polygon: wide, dots: dots) == [0, 1])
+        // Degenerate lasso (a line) selects nothing.
+        #expect(
+            ConstellationLayout.dotsInside(polygon: [[0, 0], [1, 1]], dots: dots).isEmpty)
+        // Concave C-shape: spine encloses dot 0 (0.25, 0.5); the mouth leaves
+        // dot 1 (0.75, 0.5) outside.
+        let cShape: [[Double]] = [
+            [0.1, 0.1], [0.9, 0.1], [0.9, 0.25], [0.3, 0.25],
+            [0.3, 0.75], [0.9, 0.75], [0.9, 0.9], [0.1, 0.9],
+        ]
+        #expect(ConstellationLayout.dotsInside(polygon: cShape, dots: dots) == [0])
+    }
+
     @Test func tinyDotsKeepAMinimumHitRadius() {
         // dot 1 radius = 0.02 × 200 = 4 px; minHitRadius 6 keeps a 5 px miss a hit
         #expect(

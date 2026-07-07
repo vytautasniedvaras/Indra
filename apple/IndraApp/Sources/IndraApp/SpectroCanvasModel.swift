@@ -526,6 +526,31 @@
             }
         }
 
+        /// Audition several search-result segments as one crossfaded sequence
+        /// (the lasso's "contact sheet" — ux §3). The render is per-file, so
+        /// the file holding the most lassoed segments wins; any others are
+        /// counted in the status rather than silently dropped.
+        func auditionSegments(_ indices: [Int]) {
+            guard let segments = similarResult?.segments else { return }
+            let chosen = indices.filter { segments.indices.contains($0) }
+            guard !chosen.isEmpty else { return }
+            let groups = Dictionary(grouping: chosen) { segments[$0].audioId ?? file.id }
+            guard let (targetId, group) = groups.max(by: { $0.value.count < $1.value.count })
+            else { return }
+            let spans = group
+                .map { [segments[$0].t0, segments[$0].t1] }
+                .sorted { $0[0] < $1[0] }
+            let dropped = chosen.count - group.count
+            let generation = beginAudition(
+                status: dropped > 0
+                    ? "Sequencing \(group.count) segments (\(dropped) in other files skipped)…"
+                    : "Sequencing \(group.count) segments…")
+            auditionTask = Task { [weak self] in
+                await self?.runAudition(
+                    mode: .segments(spans), generation: generation, audioId: targetId)
+            }
+        }
+
         private func beginAudition(status: String) -> Int {
             auditionTask?.cancel()
             auditionGeneration += 1

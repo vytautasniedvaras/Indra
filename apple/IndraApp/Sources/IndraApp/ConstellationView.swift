@@ -22,6 +22,9 @@
         @State private var hovered: Int?
         /// Client-side display cutoff; nil until the user touches the slider.
         @State private var displayThreshold: Double?
+        /// In-progress lasso stroke (view pixels) and the resulting selection.
+        @State private var lassoPoints: [CGPoint] = []
+        @State private var lassoSelection: [Int] = []
 
         /// One source of truth for the starfield's pixel size — the frame,
         /// the tap hit-test, and the hover hit-test must all agree.
@@ -60,7 +63,10 @@
                 Slider(
                     value: Binding(
                         get: { cutoff },
-                        set: { displayThreshold = $0 }),
+                        set: {
+                            displayThreshold = $0
+                            lassoSelection = []  // filter changed under the lasso
+                        }),
                     in: 0.02...result.threshold
                 )
                 .frame(width: 160)
@@ -69,6 +75,15 @@
                 Text("\(visibleCount)/\(result.segments.count) shown")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if !lassoSelection.isEmpty {
+                    Button("Play \(lassoSelection.count) as sequence") {
+                        canvas.auditionSegments(lassoSelection)
+                    }
+                    .help("Crossfaded contact sheet of the lassoed matches (ux §3)")
+                    Button("Clear lasso") { lassoSelection = [] }
+                        .buttonStyle(.borderless)
+                }
                 Spacer()
             }
         }
@@ -107,17 +122,33 @@
                         saturation: 0.7,
                         brightness: 0.45 + 0.55 * dot.closeness)
                     context.fill(Path(ellipseIn: rect), with: .color(color))
-                    if hovered == dot.segmentIndex {
+                    if hovered == dot.segmentIndex || lassoSelection.contains(dot.segmentIndex) {
                         context.stroke(
                             Path(ellipseIn: rect.insetBy(dx: -2, dy: -2)),
                             with: .color(.white), lineWidth: 1)
                     }
+                }
+                if lassoPoints.count > 1 {
+                    var stroke = Path()
+                    stroke.move(to: lassoPoints[0])
+                    for point in lassoPoints.dropFirst() { stroke.addLine(to: point) }
+                    context.stroke(
+                        stroke, with: .color(.white.opacity(0.7)),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 }
             }
             .onTapGesture { location in
                 guard let index = hitTest(dots, location) else { return }
                 canvas.auditionSegment(index)
             }
+            .gesture(
+                DragGesture(minimumDistance: 6)
+                    .onChanged { value in
+                        lassoPoints.append(value.location)
+                    }
+                    .onEnded { _ in
+                        finishLasso(dots)
+                    })
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let point):
@@ -126,7 +157,8 @@
                     hovered = nil
                 }
             }
-            .help("Each dot is a match: size = duration, color = cluster, brightness = closeness. Click to hear it.")
+            .help(
+                "Each dot is a match: size = duration, color = cluster, brightness = closeness. Click to hear it; drag a lasso to group.")
         }
 
         /// Matches grouped per file — seed file first (ux §3), then by name.
@@ -206,6 +238,17 @@
             if audioId == canvas.file.id { return "this file" }
             let path = model.files.first { $0.id == audioId }?.origPath ?? audioId
             return (path as NSString).lastPathComponent
+        }
+
+        /// Close the stroke, map to unit space, select enclosed dot centers.
+        private func finishLasso(_ dots: [ConstellationLayout.Dot]) {
+            defer { lassoPoints = [] }
+            guard lassoPoints.count >= 3 else { return }
+            let polygon = lassoPoints.map {
+                [Double($0.x) / Double(Self.mapSize.width),
+                 Double($0.y) / Double(Self.mapSize.height)]
+            }
+            lassoSelection = ConstellationLayout.dotsInside(polygon: polygon, dots: dots)
         }
 
         private func hitTest(_ dots: [ConstellationLayout.Dot], _ point: CGPoint) -> Int? {

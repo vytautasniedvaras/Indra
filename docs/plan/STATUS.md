@@ -179,7 +179,10 @@ AuditionResult in Core; formulas moved to Core with tests (constellation hit tes
 CurveLane.buckets(from:), MagicSelection.frequency/timeBounds); tile-fetch token guard;
 canvas cancels superseded work on file switch; seed-file-first pill rows.
 
-Deferred UI polish (backlog, not blocking): lasso multi-segment selection + verbs.
+- [x] Lasso multi-select (ux §3): drag a loop on the starfield (point-in-polygon in
+      ConstellationLayout.dotsInside, CI-tested incl. concave shapes) → selected dots
+      highlight → "Play N as sequence" renders the majority-file group as a crossfaded
+      contact sheet. Backlog is now EMPTY — Phase 4 UI complete pending Mac smoke test.
 
 - [x] Live magic-select tolerance: ±dB slider re-grows from the SAME seed (debounced;
       per-tolerance server cache), the ux §1 "tolerance drag" as a slider.

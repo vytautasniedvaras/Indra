@@ -127,8 +127,26 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       and `segments` (equal-power crossfaded segment playback). 10 tests incl. chirp
       tracking, contextual-vs-absolute under a whole-mix ramp, impostor rejection, roundtrip
       via HTTP, crossfade click-freeness. Docs: api.md.
+- [x] Folder-wide similar search (user request 2026-07-07): `targets:"all"|[ids]` on
+      /select/similar — fixed-Hz profile bands (40 Hz–16 kHz) + per-file baseline removal
+      make seeds transfer across sample rates/levels; seed exemplars (mean + spaced columns)
+      so evolving sounds match phase-by-phase; `embed:true` returns 2-D PCA coords +
+      cosine-linkage cluster labels for the constellation view. ENGINE_VERSION → 0.2.0
+      (profile computation changed). Tests: cross-rate cross-file match + impostor
+      rejection + cluster separation (test_select_multi.py).
+- [x] Onset tweaking (user request 2026-07-07): POST /onsets/repick — synchronous batch
+      re-threshold on the SAVED envelope (pick_peaks seam extracted, bit-compatible with
+      the original detection); region-scoped redo; POST /onsets/commit — picked onsets →
+      point annotations in ONE undoable action (HistoryManager.create_annotations_batch).
+      Tests: test_onset_repick.py (7).
+- [x] Interaction design blueprint: docs/design/selection-ux.md — selection visual
+      language (ribbons, not marching ants), post-selection verbs, constellation/cluster
+      view for folder search results, feature overlays (lane + heat-ribbon modes),
+      two-layer onset model (detected vs committed). Every interaction maps to an
+      existing endpoint.
 - [ ] Metal tile renderer (§5.3): MTKView canvas, tile atlas, colormap/freq-scale LUT shaders,
       LOD cross-fade, overlays (playhead/selection/lanes) — consumes the IndraKitCore math
+      (agent writing it now; macOS CI job added so it compiles in CI, not just on the Mac)
 - [ ] Gesture layer (scroll/magnify/drag on subclassed MTKView)
 - [ ] Audition wiring in the app (selection → POST /audition → play rendered WAV)
 - [ ] Quick-preview EQ fallback while audition renders (§5.5)

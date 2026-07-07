@@ -152,6 +152,12 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
 
 ## Notes for the next session
 
+- `.claude/skills/` carries four vendored skills (mattpocock/skills @ 16a2a5c, MIT):
+  `tdd`, `codebase-design`, `code-review`, `diagnosing-bugs`. **Use `diagnosing-bugs` for
+  Mac-side smoke-test failures** (its feedback-loop-first discipline is exactly the
+  weaker-model workflow) and `code-review` for phase-PR review passes against
+  docs/BUILD_SPEC.md.
+
 - Durable MCP create_trigger still blocked on approval (retried many times). In-session
   hourly CronCreate heartbeat is armed instead (re-arm at session start — it died once
   already with a container restart on 2026-07-06 evening). If the user is in the app when

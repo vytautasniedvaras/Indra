@@ -8,23 +8,6 @@ permissions:
   contents: write # indrakit publishes failure logs to the ci-logs-linux branch
 
 jobs:
-  # One-time cleanup: retire the platform-generated session branch (the dev
-  # environment's token cannot delete refs). Remove this job once it's gone.
-  retire-old-branch:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - env:
-          TOKEN: ${{ github.token }}
-        run: |
-          old="claude/fable-research-implementation-8z004i"
-          if git ls-remote --exit-code origin "refs/heads/$old" >/dev/null 2>&1; then
-            git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}" --delete "$old"
-            echo "deleted $old"
-          else
-            echo "$old already gone"
-          fi
-
   backend:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: backend } }

@@ -115,13 +115,40 @@ cache key — pass it straight to `POST /audition` to hear the selection, feathe
 
 ### `POST /select/similar` (Phase 4, §5)
 `{ "audio_id", "seed": { t0, t1 }, "threshold"?: 0.4, "min_segment_s"?: 0.5,
-"use_features"?: ["roughness_mpt", …] }` → `{ "job_id" }`. Finds time regions that sound
-like the seed: 24 log-band energy profiles (per-band median-over-time baseline removed,
-~0.25 s smoothed, unit-normalized), cosine distance to the seed mean; `use_features` mixes
-in already-computed feature curves as extra profile dimensions. Result `result_ref` =
-`{ segments: [{ t0, t1, distance },…], seed: { t0, t1 }, threshold }`. Distance is 0 for a
-perfect match; steady textures self-match ≈ 0.1, evolving ones ≈ 0.3 — the default 0.4
-catches both.
+"use_features"?: ["roughness_mpt", …], "targets"?: "all" | [audio_id,…], "embed"?: false }`
+→ `{ "job_id" }`. Finds time regions that sound like the seed: 24 fixed-Hz log-band energy
+profiles (40 Hz–16 kHz, per-band median-over-time baseline removed, ~0.25 s smoothed,
+unit-normalized), cosine distance to the NEAREST of ~6 seed exemplars (the mean plus evenly
+spaced columns of the seed window — evolving seeds match phase-by-phase instead of being
+smeared into one average). Distance is 0 for a perfect match; the default threshold 0.4
+catches steady and evolving textures.
+
+- Single-file (no `targets`): result `{ segments: [{ t0, t1, distance },…], threshold,
+  features_used }`; `use_features` mixes already-computed feature curves into the distance.
+- **Folder-wide** (`targets: "all"` or a list): scans every listed import with the same
+  seed — fixed-Hz bands + per-file baseline removal make profiles comparable across
+  different sample rates, levels, and noise floors. Result `{ segments: [{ audio_id, t0,
+  t1, distance },…] (sorted best-first), scanned: [audio_id,…], threshold }`.
+- `embed: true` (with `targets`) attaches `embedding: { xy: [[x,y],…], cluster: [int,…],
+  n_clusters }` — 2-D PCA coordinates plus average-linkage cosine clusters (cut at 0.4, the
+  search-threshold scale) per segment, in segment order: everything a cluster-map view
+  needs for the varied classes that come back.
+
+### `POST /onsets/repick` (synchronous)
+`{ "audio_id", "key"?, "delta"?, "wait_s"?, "pre_max_s"?, "post_max_s"?, "pre_avg_s"?,
+"post_avg_s"?, "region"?: { t0, t1 } }` → onsets directly (no job). **Batch
+re-thresholding**: re-runs only the millisecond-scale peak pick on the SAVED
+onset-strength envelope (latest `onsets_superflux_pcen` or the one named by `key`) — the
+expensive PCEN/SuperFlux stage is never recomputed, so this can drive a live sensitivity
+slider. With no overrides it reproduces the original detection exactly. `delta` is on the
+[0,1]-normalized envelope (comparable across files); `region` re-picks only inside a window
+(local redo). Response `{ audio_id, source_key, params, n, onsets: { t: […], strength: […] } }`.
+
+### `POST /onsets/commit` (synchronous)
+`{ "audio_id", "times": […], "strengths"?: […], "label"?: "onset" }` → creates one point
+annotation (t0 == t1) per onset in a SINGLE undoable action (`POST /undo` removes the whole
+batch; annotations PATCH/DELETE then give per-onset fine tweaking — move, delete — with the
+normal undo). Response `{ created, annotations: […] }`.
 
 ### `POST /export` (Phase 3, §6.6)
 `{ audio_id, kinds: [feature kinds], format: "json" | "csv", region? }` → attachment

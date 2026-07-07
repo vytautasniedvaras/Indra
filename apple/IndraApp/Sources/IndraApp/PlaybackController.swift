@@ -1,7 +1,9 @@
 // AVAudioEngine playback of the ORIGINAL file: AVAudioPlayerNode with gapless
 // scheduleSegment chunk chaining (next chunk queued a full chunk before the
 // current drains — BUILD_SPEC §5.5) and an AVAudioUnitTimePitch for 0.25–4×
-// rate. Filtered audition (backend STFT→mask→ISTFT) comes later in Phase 4.
+// rate. Audition support (§5.5): an EQ band-pass quick-preview engages the
+// instant a selection is auditioned, and the backend's rendered scratch WAV
+// takes over on a second player node when the job lands.
 // USER-SMOKE-TESTED ONLY — AVFoundation cannot be exercised headlessly; see
 // docs/plan/SMOKE_TESTS.md (Phase 4).
 
@@ -17,6 +19,9 @@
         @ObservationIgnored private let engine = AVAudioEngine()
         @ObservationIgnored private let player = AVAudioPlayerNode()
         @ObservationIgnored private let timePitch = AVAudioUnitTimePitch()
+        @ObservationIgnored private let previewEQ = AVAudioUnitEQ(numberOfBands: 2)
+        @ObservationIgnored private let scratchPlayer = AVAudioPlayerNode()
+        @ObservationIgnored private var scratchFile: AVAudioFile?
         @ObservationIgnored private var file: AVAudioFile?
         /// File frame corresponding to playerTime.sampleTime == 0 for the
         /// current schedule run.
@@ -31,6 +36,8 @@
         private(set) var duration: Double = 0
         private(set) var currentTime: Double = 0
         private(set) var rate: Float = 1.0
+        private(set) var isPlayingScratch = false
+        private(set) var previewBandActive = false
         var lastError: String?
 
         var isLoaded: Bool { duration > 0 }
@@ -42,6 +49,18 @@
         init() {
             engine.attach(player)
             engine.attach(timePitch)
+            engine.attach(previewEQ)
+            engine.attach(scratchPlayer)
+            // Band 0: resonant high-pass at the selection's f0; band 1:
+            // low-pass at f1 — the §5.5 quick preview while the backend's
+            // exact STFT-mask render is in flight. Bypassed unless engaged.
+            previewEQ.bands[0].filterType = .resonantHighPass
+            previewEQ.bands[1].filterType = .resonantLowPass
+            for band in previewEQ.bands {
+                band.bandwidth = 0.7
+                band.bypass = true
+            }
+            previewEQ.bypass = true
         }
 
         // MARK: - File loading
@@ -56,8 +75,9 @@
                 duration = Double(audioFile.length)
                     / audioFile.processingFormat.sampleRate
                 engine.connect(player, to: timePitch, format: audioFile.processingFormat)
+                engine.connect(timePitch, to: previewEQ, format: audioFile.processingFormat)
                 engine.connect(
-                    timePitch, to: engine.mainMixerNode,
+                    previewEQ, to: engine.mainMixerNode,
                     format: audioFile.processingFormat)
                 currentTime = 0
                 lastError = nil
@@ -120,6 +140,68 @@
             needsReschedule = true
             timer?.invalidate()
             timer = nil
+        }
+
+        // MARK: - Audition (§5.5): EQ quick preview + rendered-scratch playback
+
+        /// Engage the band-pass quick preview over the main chain — instant,
+        /// approximate isolation while the backend renders the exact mask.
+        func setPreviewBand(f0: Double?, f1: Double?) {
+            if let f0, f0 > 0 {
+                previewEQ.bands[0].frequency = Float(f0)
+                previewEQ.bands[0].bypass = false
+            } else {
+                previewEQ.bands[0].bypass = true
+            }
+            if let f1, f1 > 0 {
+                previewEQ.bands[1].frequency = Float(f1)
+                previewEQ.bands[1].bypass = false
+            } else {
+                previewEQ.bands[1].bypass = true
+            }
+            previewEQ.bypass = previewEQ.bands.allSatisfy(\.bypass)
+            previewBandActive = !previewEQ.bypass
+        }
+
+        func clearPreviewBand() {
+            for band in previewEQ.bands { band.bypass = true }
+            previewEQ.bypass = true
+            previewBandActive = false
+        }
+
+        /// Play a backend-rendered audition WAV (≤ 600 s scratch file) on the
+        /// dedicated scratch node; the main transport pauses underneath and
+        /// resumes untouched when the scratch finishes or is stopped.
+        func playScratch(url: URL) {
+            stopScratch()
+            if isPlaying { pause() }
+            do {
+                let audioFile = try AVAudioFile(forReading: url)
+                scratchFile = audioFile
+                engine.connect(
+                    scratchPlayer, to: engine.mainMixerNode,
+                    format: audioFile.processingFormat)
+                if !engine.isRunning { try engine.start() }
+                scratchPlayer.scheduleFile(audioFile, at: nil) { [weak self] in
+                    Task { @MainActor [weak self] in
+                        self?.isPlayingScratch = false
+                    }
+                }
+                scratchPlayer.play()
+                isPlayingScratch = true
+                lastError = nil
+            } catch {
+                scratchFile = nil
+                isPlayingScratch = false
+                lastError =
+                    "Cannot play audition \(url.lastPathComponent): "
+                    + error.localizedDescription
+            }
+        }
+
+        func stopScratch() {
+            scratchPlayer.stop()
+            isPlayingScratch = false
         }
 
         // MARK: - Gapless segment chaining (§5.5)

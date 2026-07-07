@@ -16,6 +16,10 @@
         let spec: SpecManifest
         var playheadTime: Double
         var onSeek: (Double) -> Void
+        /// Rendered audition WAV ready — play it (PlaybackController.playScratch).
+        var onAuditionReady: (URL) -> Void = { _ in }
+        /// EQ quick-preview engage/clear while an audition renders (§5.5).
+        var onPreviewBand: (Double?, Double?) -> Void = { _, _ in }
 
         @Environment(AppModel.self) private var model
         @State private var canvas: SpectroCanvasModel?
@@ -41,7 +45,7 @@
                             .foregroundStyle(.red)
                             .textSelection(.enabled)
                     }
-                    if let message = canvas.magicStatus ?? canvas.status {
+                    if let message = canvas.auditionStatus ?? canvas.magicStatus ?? canvas.status {
                         Text(message)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -83,6 +87,9 @@
                 model?.endSelectionDrag()
             }
             next.onSeek = onSeek
+            next.onAuditionReady = onAuditionReady
+            next.onPreviewBand = onPreviewBand
+            next.projectRoot = model.projectRoot
             next.setEnabledLanes(model.editor.lensesEnabled.sorted())
             canvas = next
         }
@@ -134,6 +141,12 @@
                     Button("Clear ribbons") { canvas.clearMagicSelection() }
                         .buttonStyle(.borderless)
                 }
+
+                Button("Audition") {
+                    canvas.audition(selection: model.editor.selection)
+                }
+                .help("Hear the magic selection (or the drag box) in isolation — §5.5")
+                .disabled(canvas.magicSelection == nil && model.editor.selection == nil)
 
                 if !features.isEmpty {
                     Menu("Lanes") {

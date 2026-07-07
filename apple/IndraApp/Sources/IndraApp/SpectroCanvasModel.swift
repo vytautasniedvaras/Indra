@@ -30,8 +30,11 @@
         private(set) var displayLod = 0
         private(set) var magicSelection: MagicSelection?
         private(set) var magicStatus: String?
+        private(set) var auditionStatus: String?
         private(set) var status: String?
         private(set) var lanes: [FeatureLane] = []
+        /// Project root for resolving the audition job's relative wav_path.
+        var projectRoot = ""
 
         @ObservationIgnored private var atlas = AtlasIndex(capacity: SpectroRenderer.atlasCapacity)
         /// Decoded-tile bytes (64 MB LRU) so atlas evictions re-upload from
@@ -41,6 +44,7 @@
         @ObservationIgnored private var lodFade: LodFade
         @ObservationIgnored private var laneTask: Task<Void, Never>?
         @ObservationIgnored private var magicTask: Task<Void, Never>?
+        @ObservationIgnored private var auditionTask: Task<Void, Never>?
         @ObservationIgnored private var enabledLaneKinds: [String] = []
         /// Selection-drag anchor in (seconds, Hz).
         @ObservationIgnored private var dragAnchor: (t: Double, f: Double)?
@@ -53,6 +57,11 @@
         @ObservationIgnored var onSelectionDragEnd: (() -> Void)?
         /// Plain click = seek (seconds).
         @ObservationIgnored var onSeek: ((Double) -> Void)?
+        /// Rendered audition WAV is ready to play (absolute file URL).
+        @ObservationIgnored var onAuditionReady: ((URL) -> Void)?
+        /// Engage/clear the EQ quick preview while the render is in flight
+        /// (§5.5): non-nil f0/f1 = engage band, (nil, nil) = clear.
+        @ObservationIgnored var onPreviewBand: ((Double?, Double?) -> Void)?
 
         struct FeatureLane: Identifiable {
             var kind: String
@@ -86,6 +95,7 @@
             inflight.removeAll()
             laneTask?.cancel()
             magicTask?.cancel()
+            auditionTask?.cancel()
         }
 
         // MARK: - Viewport changes (gestures + layout)
@@ -370,6 +380,71 @@
         func clearMagicSelection() {
             magicSelection = nil
             magicStatus = nil
+        }
+
+        // MARK: - Audition (§5.5): hear the selection in isolation
+
+        /// Audition the current magic selection (preferred) or the drag
+        /// selection rectangle. Engages the EQ quick preview immediately; the
+        /// exact backend render (STFT → feathered mask → ISTFT) replaces it
+        /// when the job lands. Identical requests are params-hash cached
+        /// server-side, so replays start instantly.
+        func audition(selection: Selection?) {
+            let mode: AuditionMode
+            var previewLow: Double?
+            var previewHigh: Double?
+            if let magic = magicSelection {
+                mode = .selection(id: magic.selectionId)
+                let bounds = magic.ribbons.flatMap(\.intervals)
+                previewLow = bounds.map(\.fLo).min()
+                previewHigh = bounds.map(\.fHi).max()
+            } else if let selection {
+                var mask: [String: Double] = [
+                    "t0": min(selection.t0, selection.t1),
+                    "t1": max(selection.t0, selection.t1),
+                ]
+                if let f0 = selection.f0, let f1 = selection.f1 {
+                    mask["f0"] = min(f0, f1)
+                    mask["f1"] = max(f0, f1)
+                    previewLow = min(f0, f1)
+                    previewHigh = max(f0, f1)
+                }
+                mode = .mask(mask)
+            } else {
+                auditionStatus = "Nothing to audition — drag a box or magic-select first."
+                return
+            }
+            auditionTask?.cancel()
+            auditionStatus = "Rendering audition… (EQ preview approximates it)"
+            onPreviewBand?(previewLow, previewHigh)
+            auditionTask = Task { [weak self] in
+                await self?.runAudition(mode: mode)
+            }
+        }
+
+        private func runAudition(mode: AuditionMode) async {
+            defer { onPreviewBand?(nil, nil) }
+            do {
+                let created = try await client.audition(audioId: file.id, mode: mode)
+                for try await event in client.jobEvents(id: created.jobId) {
+                    guard event.isTerminal else { continue }
+                    if event.name == "done", let ref = event.job.resultRef,
+                        let wavPath = (ref["wavPath"] ?? ref["wav_path"])?.stringValue
+                    {
+                        let path =
+                            wavPath.hasPrefix("/") ? wavPath : projectRoot + "/" + wavPath
+                        auditionStatus = "Playing audition render"
+                        onAuditionReady?(URL(fileURLWithPath: path))
+                    } else {
+                        auditionStatus = "Audition \(event.name): \(event.job.message)"
+                    }
+                    return
+                }
+            } catch is CancellationError {
+                // Superseded by a newer audition.
+            } catch {
+                auditionStatus = "Audition failed: \(error)"
+            }
         }
 
         private func runMagicSelect(seed: [String: Double]) async {

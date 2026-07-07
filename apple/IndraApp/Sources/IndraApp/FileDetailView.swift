@@ -68,7 +68,9 @@
                                 file: file,
                                 spec: spec,
                                 playheadTime: playback.currentTime,
-                                onSeek: { playback.seek(to: $0) })
+                                onSeek: { playback.seek(to: $0) },
+                                onAuditionReady: { playback.playScratch(url: $0) },
+                                onPreviewBand: { playback.setPreviewBand(f0: $0, f1: $1) })
                         } else {
                             ZStack {
                                 Color.black.opacity(0.05)

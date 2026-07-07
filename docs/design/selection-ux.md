@@ -52,9 +52,10 @@ Folder-wide search returns segments of varied lengths, shapes, and classes. Two 
 presentations, both fed by the same job result:
 
 - **In-context markers**: every match draws as a pill on that file's timeline lane
-  (stacked mini-timelines, one per scanned file, seed file first). Pill brightness =
-  1 − distance. Clicking a pill scrolls that file's spectrogram to the match; holding it
-  auditions the segment (segments-mode audition).
+  (stacked rows, one per scanned file, seed file first). Pill brightness = 1 − distance.
+  *As shipped in the harness*: clicking a same-file pill scrolls the spectrogram to the
+  match and parks the playhead; ⌥-click auditions it; other-file pills audition on click
+  (per-file mini-timeline navigation is a full-app item, not built in the harness).
 - **Constellation (cluster map)**: the `embedding` block gives 2-D coordinates and
   cluster labels per segment. Render as a starfield: each match is a dot (size = duration,
   brightness = closeness, hue = cluster, seed = ringed star at its own position).
@@ -103,8 +104,11 @@ Interactions:
 - **Redo by focusing on something else**: run the pick inside a region only
   (`region` param) — lasso a section, re-threshold just it; or switch the visible
   heat-ribbon to roughness/novelty first to *see* the alternative structure, then re-pick.
-- **Commit**: "keep these N onsets" → `POST /onsets/commit` — ONE undo step for the whole
-  batch. ⌘Z removes the batch; redo restores it.
+- **Commit**: "keep these N onsets" → `POST /onsets/commit` — ONE server undo step for
+  the whole batch (`POST /undo` / the History panel removes it; redo restores it).
+  *Harness caveat*: the app reloads the annotation store after commit, which clears the
+  LOCAL ⌘Z stack — in the harness, undo the commit via the History panel, not ⌘Z. The
+  full app should merge new records instead of rebuilding the store.
 - **Fine tweaks**: committed onsets are annotations — drag = `PATCH` (move), delete key =
   `DELETE`, each individually undoable through the existing history.
 - Strengths ride along in the annotation note, so committed onsets can still be

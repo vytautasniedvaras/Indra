@@ -52,6 +52,14 @@
                     Spacer(minLength: 0)
                 }
             }
+            .onChange(of: result) { _, _ in
+                // A NEW search result arrived: every piece of view state keyed
+                // to the old segments array is now meaningless.
+                lassoSelection = []
+                lassoPoints = []
+                displayThreshold = nil
+                hovered = nil
+            }
         }
 
         /// Re-threshold WITHOUT re-searching: every returned segment carries
@@ -67,7 +75,7 @@
                             displayThreshold = $0
                             lassoSelection = []  // filter changed under the lasso
                         }),
-                    in: 0.02...result.threshold
+                    in: 0...max(result.threshold, 0.02)
                 )
                 .frame(width: 160)
                 Text(String(format: "%.2f", cutoff))

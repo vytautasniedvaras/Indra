@@ -183,7 +183,18 @@ canvas cancels superseded work on file switch; seed-file-first pill rows.
 - [x] Lasso multi-select (ux §3): drag a loop on the starfield (point-in-polygon in
       ConstellationLayout.dotsInside, CI-tested incl. concave shapes) → selected dots
       highlight → "Play N as sequence" renders the majority-file group as a crossfaded
-      contact sheet. Backlog is now EMPTY — Phase 4 UI complete pending Mac smoke test.
+      contact sheet (ties: seed file first, deterministic).
+- [x] Final review pass over the UI commits (2026-07-07): commit got its own task slot
+      (slider can no longer cancel the non-idempotent POST mid-flight); constellation
+      view state resets on a NEW search result; sensitivity slider bound to the model;
+      honest undo wording (server History-panel undo, not local ⌘Z — harness reload
+      clears the local stack); deterministic majority-file tie-break; seedXy camel
+      fixture covered.
+
+Full-app polish queued for post-harness (from ux §5, not harness-blocking): onset
+window/gap knobs behind a disclosure; region-scoped re-pick UI; drag handles on
+committed onset hairlines; merge-not-rebuild annotation store after commit so local
+⌘Z can carry the batch; per-file mini-timeline rows for search results.
 
 - [x] Live magic-select tolerance: ±dB slider re-grows from the SAME seed (debounced;
       per-tolerance server cache), the ux §1 "tolerance drag" as a slider.

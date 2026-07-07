@@ -215,10 +215,6 @@
         }
     }
 
-    /// Overlay layer: playhead, selection rectangle, magic-selection ribbons,
-    /// and curve lanes. Observable reads happen in `body` (tracked); the
-    /// Canvas closure only uses the captured values.
-    @MainActor
     /// Onset lane controls (ux §5): show/hide the detected layer, a live
     /// sensitivity slider (each tick re-picks the SAVED envelope — no
     /// recomputation), and one-undo-step commit to the annotation layer.
@@ -268,6 +264,10 @@
         }
     }
 
+    /// Overlay layer: playhead, selection rectangle, magic-selection ribbons,
+    /// onset ticks/hairlines, and curve lanes. Observable reads happen in
+    /// `body` (tracked); the Canvas closure only uses the captured values.
+    @MainActor
     private struct SpectroOverlayView: View {
         let canvas: SpectroCanvasModel
         var selection: Selection?

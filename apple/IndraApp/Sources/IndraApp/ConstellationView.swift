@@ -1,13 +1,16 @@
 // Constellation view (docs/design/selection-ux.md §3): folder-wide similar-
 // search results as a starfield — dot position from the 2-D embedding, size =
 // duration, hue = cluster, brightness = closeness to the seed — plus per-file
-// match pills. Clicking either auditions that segment (equal-power segment
-// render via POST /audition). Layout math lives in IndraKitCore
-// (ConstellationLayout, CI-tested); this file only draws and hit-tests.
-// USER-SMOKE-TESTED ONLY — see docs/plan/SMOKE_TESTS.md (Phase 4).
+// match pills and a client-side distance re-threshold slider (segments carry
+// their distances, so tightening never re-runs the search). Clicking a dot
+// auditions it; clicking a same-file pill scrolls the spectrogram to the
+// match and seeks (⌥-click auditions); other-file pills audition. Layout math
+// lives in IndraKitCore (ConstellationLayout, CI-tested); this file only
+// draws and hit-tests. USER-SMOKE-TESTED ONLY — see docs/plan/SMOKE_TESTS.md.
 
 #if os(macOS) && canImport(SwiftUI) && canImport(MetalKit)
 
+    import AppKit
     import IndraKitCore
     import SwiftUI
 
@@ -17,23 +20,61 @@
         let result: SimilarSearchResult
         @Environment(AppModel.self) private var model
         @State private var hovered: Int?
+        /// Client-side display cutoff; nil until the user touches the slider.
+        @State private var displayThreshold: Double?
 
         /// One source of truth for the starfield's pixel size — the frame,
         /// the tap hit-test, and the hover hit-test must all agree.
         private static let mapSize = CGSize(width: 260, height: 200)
 
+        private var cutoff: Double { displayThreshold ?? result.threshold }
+
+        /// Layout over the FULL result (positions stay stable while sliding);
+        /// filtered dots just disappear. segmentIndex keys the original array.
         private var dots: [ConstellationLayout.Dot] {
-            ConstellationLayout.dots(for: result)
+            ConstellationLayout.dots(for: result).filter {
+                result.segments[$0.segmentIndex].distance <= cutoff
+            }
         }
 
         var body: some View {
-            HStack(alignment: .top, spacing: 12) {
-                starfield
-                    .frame(width: Self.mapSize.width, height: Self.mapSize.height)
-                    .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
-                pillRows
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 6) {
+                thresholdSlider
+                HStack(alignment: .top, spacing: 12) {
+                    starfield
+                        .frame(width: Self.mapSize.width, height: Self.mapSize.height)
+                        .background(
+                            Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+                    pillRows
+                    Spacer(minLength: 0)
+                }
             }
+        }
+
+        /// Re-threshold WITHOUT re-searching: every returned segment carries
+        /// its distance, so tightening the cutoff is a pure display filter.
+        private var thresholdSlider: some View {
+            HStack(spacing: 8) {
+                Text("Distance ≤")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { cutoff },
+                        set: { displayThreshold = $0 }),
+                    in: 0.02...result.threshold
+                )
+                .frame(width: 160)
+                Text(String(format: "%.2f", cutoff))
+                    .font(.caption.monospacedDigit())
+                Text("\(visibleCount)/\(result.segments.count) shown")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+
+        private var visibleCount: Int {
+            result.segments.filter { $0.distance <= cutoff }.count
         }
 
         /// The cluster map. Same data as the pills, spatial instead of listed:
@@ -78,8 +119,10 @@
 
         /// Matches grouped per file — seed file first (ux §3), then by name.
         private var pillRows: some View {
+            let visible = Array(result.segments.enumerated())
+                .filter { $0.element.distance <= cutoff }
             let grouped = Dictionary(
-                grouping: Array(result.segments.enumerated()),
+                grouping: visible,
                 by: { $0.element.audioId ?? canvas.file.id })
             let seedId = canvas.file.id
             let ordered = grouped.keys.sorted { a, b in
@@ -107,8 +150,17 @@
 
         private func pill(_ index: Int, _ segment: SimilarSegment) -> some View {
             let cluster = clusterOf(index)
+            let isLocal = (segment.audioId ?? canvas.file.id) == canvas.file.id
             return Button {
-                canvas.auditionSegment(index)
+                let optionDown = NSEvent.modifierFlags.contains(.option)
+                if isLocal && !optionDown {
+                    // Navigate: scroll the spectrogram to the match and park
+                    // the playhead on it (ux §3); ⌥-click auditions instead.
+                    canvas.revealTime(t0: segment.t0, t1: segment.t1)
+                    canvas.onSeek?(segment.t0)
+                } else {
+                    canvas.auditionSegment(index)
+                }
             } label: {
                 Text(String(format: "%.1f–%.1fs", segment.t0, segment.t1))
                     .font(.caption.monospacedDigit())
@@ -123,7 +175,12 @@
                         in: Capsule())
             }
             .buttonStyle(.plain)
-            .help(String(format: "distance %.2f — click to hear", segment.distance))
+            .help(
+                isLocal
+                    ? String(
+                        format: "distance %.2f — click to jump there, ⌥-click to hear",
+                        segment.distance)
+                    : String(format: "distance %.2f — click to hear", segment.distance))
         }
 
         private func clusterOf(_ index: Int) -> Int {

@@ -161,6 +161,17 @@
                     maxFrequency: nyquist))
         }
 
+        /// Scroll/zoom the time axis to show [t0, t1] with breathing room
+        /// (search-result navigation); the frequency window is left alone.
+        func revealTime(t0: Double, t1: Double) {
+            let pad = max((t1 - t0) * 1.5, 0.5)
+            setViewport(
+                Viewport(
+                    t0: max(0, t0 - pad), t1: min(duration, t1 + pad),
+                    f0: viewport.f0, f1: viewport.f1,
+                    width: viewport.width, height: viewport.height))
+        }
+
         func zoomToFit() {
             setViewport(
                 Viewport(

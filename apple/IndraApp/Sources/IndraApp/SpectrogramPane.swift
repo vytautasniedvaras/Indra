@@ -163,6 +163,17 @@
                 .disabled(model.editor.selection?.f0 == nil)
 
                 if canvas.magicSelection != nil {
+                    Text("±dB")
+                        .font(.caption)
+                    Slider(
+                        value: Binding(
+                            get: { canvas.magicToleranceDb },
+                            set: { canvas.setMagicTolerance($0) }),
+                        in: 2...24
+                    )
+                    .frame(width: 90)
+                    .help("Live tolerance: re-grows from the same seed (ux §1)")
+
                     Button("Clear ribbons") { canvas.clearMagicSelection() }
                         .buttonStyle(.borderless)
                 }
@@ -172,6 +183,31 @@
                 }
                 .help("Hear the magic selection (or the drag box) in isolation — §5.5")
                 .disabled(canvas.magicSelection == nil && model.editor.selection == nil)
+
+                Menu("Feather") {
+                    Picker(
+                        "Frequency edge",
+                        selection: Binding(
+                            get: { canvas.auditionFadeHz },
+                            set: { canvas.auditionFadeHz = $0 })
+                    ) {
+                        Text("Hard (10 Hz)").tag(10.0)
+                        Text("Default (50 Hz)").tag(50.0)
+                        Text("Soft (150 Hz)").tag(150.0)
+                    }
+                    Picker(
+                        "Time edge",
+                        selection: Binding(
+                            get: { canvas.auditionFadeMs },
+                            set: { canvas.auditionFadeMs = $0 })
+                    ) {
+                        Text("Hard (5 ms)").tag(5.0)
+                        Text("Default (15 ms)").tag(15.0)
+                        Text("Soft (40 ms)").tag(40.0)
+                    }
+                }
+                .fixedSize()
+                .help("Audition edge softness — what you hear at the selection's borders")
 
                 Button("Find similar") {
                     canvas.findSimilar(selection: model.editor.selection)

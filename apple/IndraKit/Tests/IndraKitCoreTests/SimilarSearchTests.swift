@@ -30,6 +30,7 @@ struct SimilarSearchTests {
             ]),
             "cluster": .array([.number(1), .number(1)]),
             "n_clusters": .number(1),
+            "seed_xy": .array([.number(0.05), .number(-0.1)]),
         ]),
     ]
 
@@ -45,6 +46,7 @@ struct SimilarSearchTests {
         #expect(result?.embedding?.xy == [[0.1, -0.2], [0.4, 0.3]])
         #expect(result?.embedding?.cluster == [1, 1])
         #expect(result?.embedding?.nClusters == 1)
+        #expect(result?.embedding?.seedXY == [0.05, -0.1])
     }
 
     @Test func parsesCamelCasedKeys() {

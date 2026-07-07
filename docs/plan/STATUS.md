@@ -179,9 +179,15 @@ AuditionResult in Core; formulas moved to Core with tests (constellation hit tes
 CurveLane.buckets(from:), MagicSelection.frequency/timeBounds); tile-fetch token guard;
 canvas cancels superseded work on file switch; seed-file-first pill rows.
 
-Deferred UI polish (backlog, not blocking): ringed seed star in the constellation;
-lasso multi-segment selection + verbs; tap-and-hold live tolerance drag; audition
-feather (fade_hz/fade_ms) controls.
+Deferred UI polish (backlog, not blocking): lasso multi-segment selection + verbs.
+
+- [x] Live magic-select tolerance: ±dB slider re-grows from the SAME seed (debounced;
+      per-tolerance server cache), the ux §1 "tolerance drag" as a slider.
+- [x] Audition feather controls: Feather menu (frequency/time edge softness) feeding
+      fade_hz/fade_ms; defaults omitted to share the parameterless cache entry.
+- [x] Ringed seed star: backend projects the seed profile into the embedding plane
+      (`seed_xy`, ENGINE_VERSION 0.2.1; test asserts it lands nearer its own kind);
+      ConstellationLayout.seedPoint shares the dots' normalization; white ringed star.
 
 - [x] Constellation distance slider: client-side re-threshold (segments carry distances —
       no re-search), dot layout stays stable while sliding; shown/total count.

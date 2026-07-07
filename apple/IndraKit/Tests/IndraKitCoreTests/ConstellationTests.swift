@@ -61,6 +61,26 @@ struct ConstellationTests {
         #expect(ConstellationLayout.dots(for: bare).isEmpty)
     }
 
+    @Test func seedPointSharesTheDotsNormalization() {
+        var res = result(
+            xy: [[0, 0], [10, 10]],
+            clusters: [1, 2],
+            segments: [(0, 1, 0.1), (2, 3, 0.6)])
+        res.embedding?.seedXY = [5, 5]  // dead center of the extrema
+        let seed = ConstellationLayout.seedPoint(for: res)
+        #expect(seed != nil)
+        #expect(abs((seed?.x ?? 0) - 0.5) < 1e-9)
+        #expect(abs((seed?.y ?? 0) - 0.5) < 1e-9)
+        // outside the bounding box → clamped, still drawable
+        res.embedding?.seedXY = [100, -100]
+        let clamped = ConstellationLayout.seedPoint(for: res)
+        #expect(clamped?.x == 0.98)
+        #expect(clamped?.y == 0.02)
+        // no seed projection → nil
+        res.embedding?.seedXY = nil
+        #expect(ConstellationLayout.seedPoint(for: res) == nil)
+    }
+
     @Test func clusterHuesAreDistinct() {
         let hues = (1...8).map { ConstellationLayout.hue(forCluster: $0) }
         for (i, a) in hues.enumerated() {

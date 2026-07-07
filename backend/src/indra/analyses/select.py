@@ -425,24 +425,33 @@ def similar_segments_multi(
         "scanned": scanned,
     }
     if embed and segments:
-        result["embedding"] = embed_segments([s["_profile"] for s in segments])
+        # exemplars[0] is the seed's mean profile — projected into the same
+        # plane so the UI can ring the seed among its matches.
+        result["embedding"] = embed_segments(
+            [s["_profile"] for s in segments], seed_profile=exemplars[0]
+        )
     for segment in segments:
         del segment["_profile"]
     return result
 
 
-def embed_segments(profiles: list[FloatArray]) -> dict[str, Any]:
+def embed_segments(
+    profiles: list[FloatArray], seed_profile: FloatArray | None = None
+) -> dict[str, Any]:
     """Cluster-map support: 2-D coordinates + hierarchical cluster labels.
 
     Input: one unit profile vector per segment. Output coords are the first two
     principal components (deterministic sign convention); clusters come from
     average-linkage agglomeration on cosine distance, cut at 0.4 — the same
     scale as the search threshold, so "one cluster" ≈ "would match each other".
+    A `seed_profile` is projected through the SAME plane and returned as
+    `seed_xy` so the UI can ring the seed among its matches.
     """
     import scipy.cluster.hierarchy as hierarchy
 
     matrix = np.stack(profiles, axis=0)
-    centered = matrix - matrix.mean(axis=0, keepdims=True)
+    mean = matrix.mean(axis=0, keepdims=True)
+    centered = matrix - mean
     _u, _s, vt = np.linalg.svd(centered, full_matrices=False)
     axes = vt[:2] if vt.shape[0] >= 2 else np.vstack([vt, np.zeros_like(vt[:1])])
     # Deterministic orientation: make each axis's largest component positive.
@@ -455,8 +464,12 @@ def embed_segments(profiles: list[FloatArray]) -> dict[str, Any]:
         labels = hierarchy.fcluster(linkage, t=0.4, criterion="distance")
     else:
         labels = np.ones(len(profiles), dtype=int)
-    return {
+    result = {
         "xy": [[float(x), float(y)] for x, y in coords],
         "cluster": [int(label) for label in labels],
         "n_clusters": int(labels.max()) if len(labels) else 0,
     }
+    if seed_profile is not None:
+        seed_xy = (seed_profile[np.newaxis, :] - mean) @ axes.T
+        result["seed_xy"] = [float(seed_xy[0, 0]), float(seed_xy[0, 1])]
+    return result

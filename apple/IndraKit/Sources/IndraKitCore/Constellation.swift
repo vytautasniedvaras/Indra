@@ -101,4 +101,31 @@ public enum ConstellationLayout {
     public static func hue(forCluster cluster: Int) -> Double {
         (Double(cluster) * 0.381966).truncatingRemainder(dividingBy: 1)
     }
+
+    /// The seed's unit-square position, normalized with the SAME extrema as
+    /// the segment dots so it lands among its matches. The seed can project
+    /// outside the segments' bounding box — clamped to stay visible. Nil when
+    /// there is no embedding or no seed projection.
+    public static func seedPoint(
+        for result: SimilarSearchResult, padding: Double = 0.08
+    ) -> (x: Double, y: Double)? {
+        guard let embedding = result.embedding, let seed = embedding.seedXY,
+            seed.count >= 2, !embedding.xy.isEmpty
+        else { return nil }
+        let count = min(embedding.xy.count, result.segments.count)
+        guard count > 0 else { return nil }
+        let xs = embedding.xy.prefix(count).map { $0[0] }
+        let ys = embedding.xy.prefix(count).map { $0[1] }
+        let inner = 1 - 2 * padding
+
+        func normalize(_ value: Double, min lo: Double, max hi: Double) -> Double {
+            hi - lo > 1e-12 ? padding + (value - lo) / (hi - lo) * inner : 0.5
+        }
+        func clamp(_ value: Double) -> Double { Swift.min(Swift.max(value, 0.02), 0.98) }
+
+        return (
+            clamp(normalize(seed[0], min: xs.min() ?? 0, max: xs.max() ?? 0)),
+            clamp(normalize(seed[1], min: ys.min() ?? 0, max: ys.max() ?? 0))
+        )
+    }
 }

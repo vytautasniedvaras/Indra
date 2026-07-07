@@ -110,17 +110,36 @@ def test_repick_delta_rethresholds(client: TestClient, audio_id: str, onsets_res
 def test_repick_region_scopes_the_pick(
     client: TestClient, audio_id: str, onsets_result: dict
 ) -> None:  # type: ignore[type-arg]
-    response = client.post(
-        "/onsets/repick",
-        json={"audio_id": audio_id, "delta": 0.02, "region": {"t0": 4.0, "t1": 8.0}},
-    )
-    onsets = response.json()["onsets"]["t"]
-    assert onsets, "region re-pick found nothing"
-    assert all(4.0 <= t <= 8.0 for t in onsets)
+    """Region restricts WHERE picking happens without rescaling sensitivity:
+    normalization is file-wide, so region picks agree with the global pick."""
+    body = {"audio_id": audio_id, "delta": 0.02}
+    global_t = client.post("/onsets/repick", json=body).json()["onsets"]["t"]
+    regional = client.post(
+        "/onsets/repick", json={**body, "region": {"t0": 4.0, "t1": 8.0}}
+    ).json()["onsets"]["t"]
+    assert regional, "region re-pick found nothing"
+    assert all(4.0 <= t <= 8.0 for t in regional)
+    # away from the slice edges, the regional pick is exactly the global pick
+    interior = [t for t in regional if 4.2 <= t <= 7.8]
+    assert interior
+    for t in interior:
+        assert min(abs(t - g) for g in global_t) < 0.05, f"regional onset {t} not in global pick"
 
 
 def test_repick_unknown_audio_404(client: TestClient) -> None:
     assert client.post("/onsets/repick", json={"audio_id": "nope"}).status_code == 404
+
+
+def test_repick_rejects_non_onset_key(client: TestClient, audio_id: str) -> None:
+    """A cache key naming a different feature kind must not be 'picked'."""
+    response = client.post(
+        "/analyze", json={"kind": "spectral_entropy_mpt", "audio_id": audio_id, "params": {}}
+    )
+    info = wait_for_job(client, response.json()["job_id"], timeout_s=300.0)
+    assert info["state"] == "done", info
+    entropy_key = info["result_ref"]["cache_key"]
+    result = client.post("/onsets/repick", json={"audio_id": audio_id, "key": entropy_key})
+    assert result.status_code == 404
 
 
 def test_commit_onsets_single_undo(

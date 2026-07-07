@@ -21,6 +21,32 @@ public struct APIError: Error, Sendable, Equatable {
     }
 }
 
+/// Folder-wide similar-search scope (docs/api.md POST /select/similar).
+public enum SimilarTargets: Sendable, Equatable {
+    /// Every imported file in the project.
+    case all
+    /// A specific set of audio ids.
+    case ids([String])
+}
+
+/// The three POST /audition render modes (docs/api.md).
+public enum AuditionMode: Sendable {
+    /// Rectangle time-frequency mask: t0/t1 required, f0/f1/fade_hz/fade_ms optional.
+    case mask([String: Double])
+    /// A stored magic selection, feathered.
+    case selection(id: String, fadeHz: Double?, fadeMs: Double?)
+    /// [t0, t1] time spans joined with equal-power crossfades.
+    case segments([[Double]], crossfadeMs: Double?)
+
+    public static func selection(id: String) -> AuditionMode {
+        .selection(id: id, fadeHz: nil, fadeMs: nil)
+    }
+
+    public static func segments(_ spans: [[Double]]) -> AuditionMode {
+        .segments(spans, crossfadeMs: nil)
+    }
+}
+
 public struct TileResponse: Sendable {
     public var data: Data
     public var shape: [Int]
@@ -134,6 +160,87 @@ public struct APIClient: Sendable {
         if let adapt { body["adapt"] = .string(adapt) }
         if let maxExtentS { body["max_extent_s"] = .number(maxExtentS) }
         return try await post("/select/magic", body: body)
+    }
+
+    /// POST /select/similar — find segments that sound like the seed window
+    /// (docs/api.md). `targets` nil = seed file only; `.all` / `.ids` scans a
+    /// folder; `embed` attaches the constellation-view cluster map. Parse the
+    /// job's result_ref with SimilarSearchResult.
+    public func selectSimilar(
+        audioId: String, t0: Double, t1: Double, threshold: Double? = nil,
+        minSegmentS: Double? = nil, useFeatures: [String] = [],
+        targets: SimilarTargets? = nil, embed: Bool = false
+    ) async throws -> JobCreated {
+        var body: [String: JSONValue] = [
+            "audio_id": .string(audioId),
+            "seed": .object(["t0": .number(t0), "t1": .number(t1)]),
+        ]
+        if let threshold { body["threshold"] = .number(threshold) }
+        if let minSegmentS { body["min_segment_s"] = .number(minSegmentS) }
+        if !useFeatures.isEmpty { body["use_features"] = .array(useFeatures.map { .string($0) }) }
+        switch targets {
+        case .all: body["targets"] = .string("all")
+        case .ids(let ids): body["targets"] = .array(ids.map { .string($0) })
+        case nil: break
+        }
+        if embed { body["embed"] = .bool(true) }
+        return try await post("/select/similar", body: body)
+    }
+
+    /// POST /audition — render a selection to a scratch WAV, one of three
+    /// modes (docs/api.md). Job result_ref carries wav_path + audition_id.
+    public func audition(audioId: String, mode: AuditionMode) async throws -> JobCreated {
+        var body: [String: JSONValue] = ["audio_id": .string(audioId)]
+        switch mode {
+        case .mask(let mask):
+            body["mask"] = .object(mask.mapValues { .number($0) })
+        case .selection(let id, let fadeHz, let fadeMs):
+            body["selection_id"] = .string(id)
+            if let fadeHz { body["fade_hz"] = .number(fadeHz) }
+            if let fadeMs { body["fade_ms"] = .number(fadeMs) }
+        case .segments(let spans, let crossfadeMs):
+            body["segments"] = .array(spans.map { span in .array(span.map { .number($0) }) })
+            if let crossfadeMs { body["crossfade_ms"] = .number(crossfadeMs) }
+        }
+        return try await post("/audition", body: body)
+    }
+
+    /// POST /onsets/repick — synchronous batch re-threshold on the saved
+    /// onset envelope (docs/api.md); cheap enough for a live slider. Params in
+    /// seconds; nil = the original detection's value.
+    public func onsetsRepick(
+        audioId: String, key: String? = nil, delta: Double? = nil, waitS: Double? = nil,
+        preMaxS: Double? = nil, postMaxS: Double? = nil, preAvgS: Double? = nil,
+        postAvgS: Double? = nil, regionT0: Double? = nil, regionT1: Double? = nil
+    ) async throws -> OnsetRepickResult {
+        var body: [String: JSONValue] = ["audio_id": .string(audioId)]
+        if let key { body["key"] = .string(key) }
+        if let delta { body["delta"] = .number(delta) }
+        if let waitS { body["wait_s"] = .number(waitS) }
+        if let preMaxS { body["pre_max_s"] = .number(preMaxS) }
+        if let postMaxS { body["post_max_s"] = .number(postMaxS) }
+        if let preAvgS { body["pre_avg_s"] = .number(preAvgS) }
+        if let postAvgS { body["post_avg_s"] = .number(postAvgS) }
+        if regionT0 != nil || regionT1 != nil {
+            var region: [String: JSONValue] = [:]
+            if let regionT0 { region["t0"] = .number(regionT0) }
+            if let regionT1 { region["t1"] = .number(regionT1) }
+            body["region"] = .object(region)
+        }
+        return try await post("/onsets/repick", body: body)
+    }
+
+    /// POST /onsets/commit — picked onsets → point annotations, ONE undo step.
+    public func onsetsCommit(
+        audioId: String, times: [Double], strengths: [Double]? = nil, label: String? = nil
+    ) async throws -> OnsetCommitResult {
+        var body: [String: JSONValue] = [
+            "audio_id": .string(audioId),
+            "times": .array(times.map { .number($0) }),
+        ]
+        if let strengths { body["strengths"] = .array(strengths.map { .number($0) }) }
+        if let label { body["label"] = .string(label) }
+        return try await post("/onsets/commit", body: body)
     }
 
     /// GET /files/{id}/features/{kind} — a computed feature curve, min/max

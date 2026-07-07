@@ -29,6 +29,30 @@ message is fine). Items are grouped by phase and removed once confirmed.
    Nothing here is CI-verifiable (SwiftUI/AVFoundation/macOS-only); on Linux the target
    builds as a stub executable only.
 
+## Phase 4 — Metal spectrogram renderer (ADR 0013)
+
+7. With the app running and a file imported (see item 6), on the file detail view:
+   - **Default canvas**: the Metal canvas is the default; spectrogram renders in viridis.
+     The Canvas segmented control swaps to the CPU debug canvas and back; the two images
+     agree (grayscale vs viridis aside).
+   - **Pan/zoom**: two-finger scroll pans time (x) and frequency (y); pinch zooms time
+     anchored under the cursor; ⌥-pinch zooms frequency; “Fit” restores the full view.
+     Zooming across a LOD boundary shows a brief (~100 ms) cross-fade, not a hard pop;
+     while fine tiles load, a stretched coarse image shows instead of black.
+   - **Colormap/scale**: switching colormaps is instant (no tile refetch — backend logs
+     stay quiet); Log scale visibly expands low frequencies; HUD shows visible time range
+     and current LOD.
+   - **Selection**: drag draws a box that survives pan/zoom at the correct time/frequency
+     position; one drag = ONE ⌘Z step; click (no drag) seeks the playhead.
+   - **Magic select**: drag a box around a partial/noise band → “Magic select” → orange
+     ribbons hug the energy region; ⌥-click on a harmonic does the same from a point seed;
+     “Clear ribbons” removes them (watch the `magic_select` job in /jobs).
+   - **Curve lanes**: run Roughness + Onsets, enable them under “Lanes” → min/max envelopes
+     at the canvas bottom, re-windowing on pan/zoom (~150 ms debounce); lane toggles are
+     undoable (lens state).
+   - **Memory**: on a 1-hour file, sustained pan/zoom keeps Metal texture memory roughly
+     flat (~130–200 MB, Xcode memory gauge) — the atlas LRU is working.
+
 ## Phase 3 (optional)
 
 5. Full data path on one of YOUR pieces: import a real recording via curl, run analyses

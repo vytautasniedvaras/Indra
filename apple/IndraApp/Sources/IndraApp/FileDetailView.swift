@@ -1,7 +1,8 @@
-// Per-file detail harness: debug canvas, transport, analyses, annotations,
-// export (BUILD_SPEC §9 Phase 3 DoD; Metal canvas replaces the debug canvas in
-// Phase 4 proper, §5.3). USER-SMOKE-TESTED ONLY — not CI-verifiable; see
-// docs/plan/SMOKE_TESTS.md (Phase 4).
+// Per-file detail harness: Metal spectrogram canvas (default, §5.3/ADR 0013)
+// with the CPU debug canvas kept behind a toggle for A/B, transport,
+// analyses, annotations, export (BUILD_SPEC §9 Phase 3 DoD → Phase 4).
+// USER-SMOKE-TESTED ONLY — not CI-verifiable; see docs/plan/SMOKE_TESTS.md
+// (Phase 4).
 
 #if os(macOS) && canImport(SwiftUI)
 
@@ -13,19 +14,14 @@
         let file: AudioFile
         @Environment(AppModel.self) private var model
         @State private var playback = PlaybackController()
+        @AppStorage("indra.metalCanvas") private var useMetalCanvas = true
 
         var body: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header
 
-                    DebugCanvasView(
-                        file: file,
-                        playheadFraction: playback.duration > 0
-                            ? playback.currentTime / playback.duration : 0,
-                        onSeek: { fraction in
-                            playback.seek(to: fraction * playback.duration)
-                        })
+                    canvasSection
 
                     TransportView(playback: playback)
                     AnalysesPanel(file: file)
@@ -51,6 +47,51 @@
             .task(id: file.id) {
                 playback.load(
                     url: URL(fileURLWithPath: model.resolvedAudioPath(for: file)))
+            }
+        }
+
+        /// Metal canvas by default; the CPU DebugCanvasView stays available
+        /// behind the toggle for A/B comparison (§5.3 rollout).
+        private var canvasSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Canvas", selection: $useMetalCanvas) {
+                    Text("Metal").tag(true)
+                    Text("Debug (CPU)").tag(false)
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+
+                if useMetalCanvas {
+                    #if canImport(MetalKit)
+                        if let spec = model.manifest?.spec {
+                            SpectrogramPane(
+                                file: file,
+                                spec: spec,
+                                playheadTime: playback.currentTime,
+                                onSeek: { playback.seek(to: $0) })
+                        } else {
+                            ZStack {
+                                Color.black.opacity(0.05)
+                                Text("No spectrogram pyramid yet (ingest still running?)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(height: 340)
+                        }
+                    #else
+                        Text("MetalKit unavailable on this platform.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    #endif
+                } else {
+                    DebugCanvasView(
+                        file: file,
+                        playheadFraction: playback.duration > 0
+                            ? playback.currentTime / playback.duration : 0,
+                        onSeek: { fraction in
+                            playback.seek(to: fraction * playback.duration)
+                        })
+                }
             }
         }
 

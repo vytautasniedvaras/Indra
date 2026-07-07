@@ -9,7 +9,11 @@ log="${SWIFT_LOG:-/tmp/swift-ci.log}"
 status=$?
 if [ $status -ne 0 ]; then
   # swiftc format: path:line:col: error: message
-  grep -E '^[^ ]+:[0-9]+(:[0-9]+)?: error: ' "$log" | sort -u | head -45 \
+  grep -E '^[^ ]+:[0-9]+(:[0-9]+)?: error: ' "$log" | sort -u | head -40 \
     | sed -E 's|^([^:]+):([0-9]+)(:[0-9]+)?: error: (.*)|::error file=\1,line=\2::\4|'
+  # swift-testing format: ✘ Test x() recorded an issue at File.swift:12:3: msg
+  grep -E 'recorded an issue at [^ :]+:[0-9]+' "$log" | sort -u | head -20 \
+    | sed -E 's|^.*recorded an issue at ([^:]+):([0-9]+):[0-9]+: (.*)|::error file=\1,line=\2::\3|' \
+    | cut -c1-1000
 fi
 exit $status

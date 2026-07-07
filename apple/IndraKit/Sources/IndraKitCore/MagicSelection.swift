@@ -55,10 +55,16 @@ public struct MagicSelection: Sendable, Equatable {
         self.seedLevelDb = seedLevelDb
     }
 
-    /// Parse a magic_select job's result_ref (post-convertFromSnakeCase keys,
-    /// see file header). Nil when the payload is not a magic-selection result.
+    /// Parse a magic_select job's result_ref. Accepts BOTH key spellings —
+    /// snake_case as on the wire, and camelCase as produced when the payload
+    /// went through IndraJSON's convertFromSnakeCase (which also rewrites
+    /// dictionary keys, a Foundation quirk that varies by decode path).
+    /// Nil when the payload is not a magic-selection result.
     public init?(resultRef: [String: JSONValue]) {
-        guard let id = resultRef["selectionId"]?.stringValue,
+        func field(_ camel: String, _ snake: String) -> JSONValue? {
+            resultRef[camel] ?? resultRef[snake]
+        }
+        guard let id = field("selectionId", "selection_id")?.stringValue,
             case .array(let rawRibbons)? = resultRef["ribbons"]
         else { return nil }
         var ribbons: [MagicRibbon] = []
@@ -82,7 +88,7 @@ public struct MagicSelection: Sendable, Equatable {
         self.init(
             selectionId: id, ribbons: ribbons,
             cells: (resultRef["cells"]?.numberValue).map { Int($0) },
-            seedLevelDb: resultRef["seedLevelDb"]?.numberValue)
+            seedLevelDb: field("seedLevelDb", "seed_level_db")?.numberValue)
     }
 
     /// Platform-neutral rectangle in viewport pixel space (origin top-left,

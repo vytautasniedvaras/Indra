@@ -52,6 +52,12 @@ message is fine). Items are grouped by phase and removed once confirmed.
      undoable (lens state).
    - **Memory**: on a 1-hour file, sustained pan/zoom keeps Metal texture memory roughly
      flat (~130–200 MB, Xcode memory gauge) — the atlas LRU is working.
+   - **Find similar / constellation** (needs ≥2 imported files): drag a time selection
+     around a distinctive sound → “Find similar”. A starfield appears (dot size =
+     duration, color = cluster, brightness = closeness) beside per-file match pills.
+     Clicking any dot or pill renders and plays that segment — including matches in the
+     OTHER file. Repeats of the same sound should share one color; unrelated matches (if
+     any) get different colors. “Clear matches” removes the panel.
    - **Audition** (§5.5): drag a box (or magic-select) → “Audition”. Immediately the main
      playback (if playing) narrows to the band — that's the EQ quick preview; transport
      shows “EQ preview engaged (render pending)”. Within a couple of seconds the exact

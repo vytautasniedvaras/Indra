@@ -45,11 +45,16 @@
                             .foregroundStyle(.red)
                             .textSelection(.enabled)
                     }
-                    if let message = canvas.auditionStatus ?? canvas.magicStatus ?? canvas.status {
+                    if let message = canvas.auditionStatus ?? canvas.similarStatus
+                        ?? canvas.magicStatus ?? canvas.status
+                    {
                         Text(message)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
+                    }
+                    if let result = canvas.similarResult {
+                        ConstellationView(canvas: canvas, result: result)
                     }
                 } else {
                     ZStack {
@@ -147,6 +152,17 @@
                 }
                 .help("Hear the magic selection (or the drag box) in isolation — §5.5")
                 .disabled(canvas.magicSelection == nil && model.editor.selection == nil)
+
+                Button("Find similar") {
+                    canvas.findSimilar(selection: model.editor.selection)
+                }
+                .help("Search every imported file for this sound (constellation view)")
+                .disabled(model.editor.selection == nil)
+
+                if canvas.similarResult != nil {
+                    Button("Clear matches") { canvas.clearSimilar() }
+                        .buttonStyle(.borderless)
+                }
 
                 if !features.isEmpty {
                     Menu("Lanes") {

@@ -31,6 +31,8 @@
         private(set) var magicSelection: MagicSelection?
         private(set) var magicStatus: String?
         private(set) var auditionStatus: String?
+        private(set) var similarResult: SimilarSearchResult?
+        private(set) var similarStatus: String?
         private(set) var status: String?
         private(set) var lanes: [FeatureLane] = []
         /// Project root for resolving the audition job's relative wav_path.
@@ -45,6 +47,7 @@
         @ObservationIgnored private var laneTask: Task<Void, Never>?
         @ObservationIgnored private var magicTask: Task<Void, Never>?
         @ObservationIgnored private var auditionTask: Task<Void, Never>?
+        @ObservationIgnored private var similarTask: Task<Void, Never>?
         @ObservationIgnored private var enabledLaneKinds: [String] = []
         /// Selection-drag anchor in (seconds, Hz).
         @ObservationIgnored private var dragAnchor: (t: Double, f: Double)?
@@ -96,6 +99,7 @@
             laneTask?.cancel()
             magicTask?.cancel()
             auditionTask?.cancel()
+            similarTask?.cancel()
         }
 
         // MARK: - Viewport changes (gestures + layout)
@@ -422,10 +426,25 @@
             }
         }
 
-        private func runAudition(mode: AuditionMode) async {
+        /// Audition ONE search-result segment — possibly from another file.
+        func auditionSegment(_ index: Int) {
+            guard let segments = similarResult?.segments, segments.indices.contains(index)
+            else { return }
+            let segment = segments[index]
+            let targetId = segment.audioId ?? file.id
+            auditionTask?.cancel()
+            auditionStatus = "Rendering segment audition…"
+            auditionTask = Task { [weak self] in
+                await self?.runAudition(
+                    mode: .segments([[segment.t0, segment.t1]]), audioId: targetId)
+            }
+        }
+
+        private func runAudition(mode: AuditionMode, audioId: String? = nil) async {
             defer { onPreviewBand?(nil, nil) }
             do {
-                let created = try await client.audition(audioId: file.id, mode: mode)
+                let created = try await client.audition(
+                    audioId: audioId ?? file.id, mode: mode)
                 for try await event in client.jobEvents(id: created.jobId) {
                     guard event.isTerminal else { continue }
                     if event.name == "done", let ref = event.job.resultRef,
@@ -444,6 +463,55 @@
                 // Superseded by a newer audition.
             } catch {
                 auditionStatus = "Audition failed: \(error)"
+            }
+        }
+
+        // MARK: - Similar search + constellation (POST /select/similar, ux §3)
+
+        /// Folder-wide "find this sound everywhere" from the drag selection's
+        /// time window. Always requests the embedding — the constellation view
+        /// needs coordinates + cluster labels.
+        func findSimilar(selection: Selection?) {
+            guard let selection else {
+                similarStatus = "Drag a time selection first."
+                return
+            }
+            similarTask?.cancel()
+            similarStatus = "Searching all files…"
+            let t0 = min(selection.t0, selection.t1)
+            let t1 = max(selection.t0, selection.t1)
+            similarTask = Task { [weak self] in
+                await self?.runSimilarSearch(t0: t0, t1: t1)
+            }
+        }
+
+        func clearSimilar() {
+            similarResult = nil
+            similarStatus = nil
+        }
+
+        private func runSimilarSearch(t0: Double, t1: Double) async {
+            do {
+                let created = try await client.selectSimilar(
+                    audioId: file.id, t0: t0, t1: t1, targets: .all, embed: true)
+                for try await event in client.jobEvents(id: created.jobId) {
+                    guard event.isTerminal else { continue }
+                    if event.name == "done", let ref = event.job.resultRef,
+                        let result = SimilarSearchResult(resultRef: ref)
+                    {
+                        similarResult = result
+                        let files = Set(result.segments.compactMap(\.audioId)).count
+                        similarStatus =
+                            "\(result.segments.count) matches across \(max(files, 1)) file(s)"
+                    } else {
+                        similarStatus = "Search \(event.name): \(event.job.message)"
+                    }
+                    return
+                }
+            } catch is CancellationError {
+                // Superseded by a newer search.
+            } catch {
+                similarStatus = "Similar search failed: \(error)"
             }
         }
 

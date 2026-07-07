@@ -163,8 +163,11 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       transport shows state + Stop (SMOKE_TESTS item 7 covers verification)
 - [x] Quick-preview EQ fallback while audition renders (§5.5): resonant HP/LP pair on the
       main chain engages instantly from the selection band, clears when the render lands
-- [ ] Similar-search + constellation view in the app (backend + IndraKit parsing done;
-      SwiftUI view remains)
+- [x] Similar-search + constellation view in the app: "Find similar" (folder-wide,
+      embed:true) → starfield (ConstellationLayout math in IndraKitCore, CI-tested:
+      position from embedding, size=duration, hue=cluster, brightness=closeness) +
+      per-file match pills; clicking either auditions that segment cross-file via the
+      segments render. SMOKE_TESTS item 7 covers verification.
 
 ## Deviations from BUILD_SPEC.md
 

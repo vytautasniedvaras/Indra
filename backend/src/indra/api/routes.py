@@ -44,7 +44,7 @@ from indra.history.manager import HistoryError, HistoryManager
 from indra.jobs.registry import JobHandle, JobRegistry
 from indra.jobs.workers import WORKERS
 from indra.storage.db import Database
-from indra.storage.features import minmax_buckets, read_feature
+from indra.storage.features import FeatureBlobMissing, load_latest_feature, minmax_buckets
 from indra.storage.paths import PROJECT_FORMAT_VERSION, ProjectPaths
 
 router = APIRouter()
@@ -276,23 +276,16 @@ async def feature_values(
     downsample: int | None = None,
     key: str | None = None,
 ) -> dict[str, Any]:
-    db = _db(request)
-    if key:
-        row = db.query_one(
-            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?", (key, audio_id)
-        )
-    else:
-        row = db.query_one(
-            "SELECT * FROM analysis_cache WHERE audio_id=? AND kind=? AND blob_path != '' "
-            "ORDER BY created_at DESC LIMIT 1",
-            (audio_id, kind),
-        )
-    if row is None:
+    paths = _paths(request)
+    try:
+        loaded = load_latest_feature(paths.db, paths.root, audio_id, kind, key)
+    except FeatureBlobMissing as exc:
+        raise ApiError(
+            404, "not_found", "feature table missing (evicted); re-run analysis"
+        ) from exc
+    if loaded is None:
         raise ApiError(404, "not_found", f"no computed {kind} for {audio_id}")
-    blob = _paths(request).root / str(row["blob_path"])
-    if not blob.exists():
-        raise ApiError(404, "not_found", "feature table missing (evicted); re-run analysis")
-    columns, metadata = read_feature(blob)
+    row, columns, metadata = loaded
 
     times = columns["time_s"]
     lo = int(np.searchsorted(times, t0)) if t0 is not None else 0
@@ -498,25 +491,18 @@ async def onsets_repick(request: Request, body: OnsetRepickRequest) -> dict[str,
     """
     from indra.analyses.onsets import pick_peaks
 
-    db = _db(request)
-    if body.key:
-        row = db.query_one(
-            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?"
-            " AND kind='onsets_superflux_pcen'",
-            (body.key, body.audio_id),
+    paths = _paths(request)
+    try:
+        loaded = load_latest_feature(
+            paths.db, paths.root, body.audio_id, "onsets_superflux_pcen", body.key
         )
-    else:
-        row = db.query_one(
-            "SELECT * FROM analysis_cache WHERE audio_id=? AND kind='onsets_superflux_pcen'"
-            " AND blob_path != '' ORDER BY created_at DESC LIMIT 1",
-            (body.audio_id,),
-        )
-    if row is None:
+    except FeatureBlobMissing as exc:
+        raise ApiError(
+            404, "not_found", "onset envelope missing (evicted); re-run analysis"
+        ) from exc
+    if loaded is None:
         raise ApiError(404, "not_found", f"no computed onsets for {body.audio_id}; analyze first")
-    blob = _paths(request).root / str(row["blob_path"])
-    if not blob.exists():
-        raise ApiError(404, "not_found", "onset envelope missing (evicted); re-run analysis")
-    columns, _metadata = read_feature(blob)
+    row, columns, _metadata = loaded
     times = np.asarray(columns["time_s"], dtype=np.float32)
     envelope = np.asarray(columns["value"], dtype=np.float32)
     region = (body.region.t0, body.region.t1) if body.region is not None else None

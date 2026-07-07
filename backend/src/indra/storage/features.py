@@ -72,6 +72,51 @@ def read_feature(path: Path) -> tuple[dict[str, NDArray[Any]], dict[str, Any]]:
     return columns, metadata
 
 
+class FeatureBlobMissing(Exception):
+    """The cache row exists but its parquet was evicted; re-run the analysis."""
+
+
+def load_latest_feature(
+    db_path: Path,
+    root: Path,
+    audio_id: str,
+    kind: str,
+    key: str | None = None,
+) -> tuple[dict[str, Any], dict[str, NDArray[Any]], dict[str, Any]] | None:
+    """Newest (or `key`-named) cached feature for (audio_id, kind), read back.
+
+    The one place the "latest analysis row" lookup lives — routes, export, and
+    workers all resolve cached features through it. Opens a short-lived read
+    connection (WAL allows concurrent readers), so it works from any process.
+    Returns (row, columns, metadata); None if nothing was ever computed; raises
+    FeatureBlobMissing if the row exists but the blob was evicted.
+    """
+    from indra.storage.db import open_db
+
+    conn = open_db(db_path)
+    try:
+        if key:
+            row = conn.execute(
+                "SELECT * FROM analysis_cache WHERE key=? AND audio_id=? AND kind=?",
+                (key, audio_id, kind),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM analysis_cache WHERE audio_id=? AND kind=? AND blob_path != ''"
+                " ORDER BY created_at DESC LIMIT 1",
+                (audio_id, kind),
+            ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    blob = root / str(row["blob_path"])
+    if not blob.exists():
+        raise FeatureBlobMissing(str(blob))
+    columns, metadata = read_feature(blob)
+    return dict(row), columns, metadata
+
+
 def minmax_buckets(
     times: NDArray[Any], values: NDArray[Any], buckets: int
 ) -> dict[str, list[float]]:

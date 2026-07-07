@@ -17,7 +17,7 @@ import numpy as np
 
 from indra import ENGINE_VERSION
 from indra.storage.db import Database
-from indra.storage.features import read_feature
+from indra.storage.features import FeatureBlobMissing, load_latest_feature
 from indra.storage.paths import ProjectPaths
 
 SCHEMA_VERSION = 1
@@ -30,19 +30,16 @@ class ExportError(Exception):
 
 
 def _latest_feature(
-    db: Database, paths: ProjectPaths, audio_id: str, kind: str
+    paths: ProjectPaths, audio_id: str, kind: str
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    row = db.query_one(
-        "SELECT * FROM analysis_cache WHERE audio_id=? AND kind=? AND blob_path != ''"
-        " ORDER BY created_at DESC LIMIT 1",
-        (audio_id, kind),
-    )
-    if row is None:
+    """Export skips kinds that were never computed OR whose blob was evicted."""
+    try:
+        loaded = load_latest_feature(paths.db, paths.root, audio_id, kind)
+    except FeatureBlobMissing:
         return None
-    blob = paths.root / str(row["blob_path"])
-    if not blob.exists():
+    if loaded is None:
         return None
-    columns, metadata = read_feature(blob)
+    row, columns, metadata = loaded
     result_ref = json.loads(str(row["result_json"])) if row["result_json"] else {}
     metadata["result_ref"] = result_ref
     return columns, metadata
@@ -73,7 +70,7 @@ def gather(
     onsets: list[dict[str, float]] = []
     missing: list[str] = []
     for kind in kinds:
-        found = _latest_feature(db, paths, audio_id, kind)
+        found = _latest_feature(paths, audio_id, kind)
         if found is None:
             missing.append(kind)
             continue

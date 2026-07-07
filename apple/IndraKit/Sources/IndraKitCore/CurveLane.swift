@@ -59,6 +59,19 @@ public enum CurveLane {
         return lo...hi
     }
 
+    /// Rebucket a server FeatureBucketSeries to per-pixel columns of
+    /// `viewport`. Server buckets already carry (min, max) per coarse bucket;
+    /// feeding BOTH extremes through minMaxBuckets as two samples at the same
+    /// time preserves them exactly at any display width.
+    public static func buckets(
+        from series: FeatureBucketSeries, viewport: Viewport
+    ) -> [CurveBucket?] {
+        minMaxBuckets(
+            values: (series.min + series.max).map { Float($0) },
+            times: series.t + series.t,
+            viewport: viewport)
+    }
+
     /// Map `value` into lane-local 0..1 over `range`, clamped. A degenerate
     /// (zero-width) range maps everything to 0.5 (mid-lane flat line).
     public static func normalized(_ value: Float, in range: ClosedRange<Float>) -> Float {

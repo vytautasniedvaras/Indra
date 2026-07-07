@@ -55,16 +55,10 @@ public struct MagicSelection: Sendable, Equatable {
         self.seedLevelDb = seedLevelDb
     }
 
-    /// Parse a magic_select job's result_ref. Accepts BOTH key spellings —
-    /// snake_case as on the wire, and camelCase as produced when the payload
-    /// went through IndraJSON's convertFromSnakeCase (which also rewrites
-    /// dictionary keys, a Foundation quirk that varies by decode path).
-    /// Nil when the payload is not a magic-selection result.
+    /// Parse a magic_select job's result_ref (key spellings: see
+    /// `wireValue`). Nil when the payload is not a magic-selection result.
     public init?(resultRef: [String: JSONValue]) {
-        func field(_ camel: String, _ snake: String) -> JSONValue? {
-            resultRef[camel] ?? resultRef[snake]
-        }
-        guard let id = field("selectionId", "selection_id")?.stringValue,
+        guard let id = resultRef.wireValue("selectionId", "selection_id")?.stringValue,
             case .array(let rawRibbons)? = resultRef["ribbons"]
         else { return nil }
         var ribbons: [MagicRibbon] = []
@@ -88,7 +82,22 @@ public struct MagicSelection: Sendable, Equatable {
         self.init(
             selectionId: id, ribbons: ribbons,
             cells: (resultRef["cells"]?.numberValue).map { Int($0) },
-            seedLevelDb: field("seedLevelDb", "seed_level_db")?.numberValue)
+            seedLevelDb: resultRef.wireValue("seedLevelDb", "seed_level_db")?.numberValue)
+    }
+
+    /// Frequency extent across every ribbon interval — feeds the EQ
+    /// quick-preview band while an audition renders (§5.5). Nil when empty.
+    public var frequencyBounds: (lo: Double, hi: Double)? {
+        let intervals = ribbons.flatMap(\.intervals)
+        guard let lo = intervals.map(\.fLo).min(), let hi = intervals.map(\.fHi).max()
+        else { return nil }
+        return (lo, hi)
+    }
+
+    /// Time extent of the selection. Nil when empty.
+    public var timeBounds: (t0: Double, t1: Double)? {
+        guard let first = ribbons.first, let last = ribbons.last else { return nil }
+        return (first.t0, last.t1)
     }
 
     /// Platform-neutral rectangle in viewport pixel space (origin top-left,

@@ -18,6 +18,10 @@
         @Environment(AppModel.self) private var model
         @State private var hovered: Int?
 
+        /// One source of truth for the starfield's pixel size — the frame,
+        /// the tap hit-test, and the hover hit-test must all agree.
+        private static let mapSize = CGSize(width: 260, height: 200)
+
         private var dots: [ConstellationLayout.Dot] {
             ConstellationLayout.dots(for: result)
         }
@@ -25,7 +29,7 @@
         var body: some View {
             HStack(alignment: .top, spacing: 12) {
                 starfield
-                    .frame(width: 260, height: 200)
+                    .frame(width: Self.mapSize.width, height: Self.mapSize.height)
                     .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
                 pillRows
                 Spacer(minLength: 0)
@@ -36,7 +40,8 @@
         /// classes that emerge (kicks vs crackles vs that one weird resonance)
         /// separate visually without anyone defining classes up front.
         private var starfield: some View {
-            Canvas { context, size in
+            let dots = self.dots  // one layout per body evaluation, not per hover
+            return Canvas { context, size in
                 let side = min(size.width, size.height)
                 for dot in dots {
                     let rect = CGRect(
@@ -57,14 +62,13 @@
                 }
             }
             .onTapGesture { location in
-                guard let index = hitTest(location, in: CGSize(width: 260, height: 200))
-                else { return }
+                guard let index = hitTest(dots, location) else { return }
                 canvas.auditionSegment(index)
             }
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let point):
-                    hovered = hitTest(point, in: CGSize(width: 260, height: 200))
+                    hovered = hitTest(dots, point)
                 case .ended:
                     hovered = nil
                 }
@@ -72,14 +76,19 @@
             .help("Each dot is a match: size = duration, color = cluster, brightness = closeness. Click to hear it.")
         }
 
-        /// Matches grouped per file, best-first inside each row.
+        /// Matches grouped per file — seed file first (ux §3), then by name.
         private var pillRows: some View {
             let grouped = Dictionary(
                 grouping: Array(result.segments.enumerated()),
                 by: { $0.element.audioId ?? canvas.file.id })
+            let seedId = canvas.file.id
+            let ordered = grouped.keys.sorted { a, b in
+                if (a == seedId) != (b == seedId) { return a == seedId }
+                return fileLabel(a) < fileLabel(b)
+            }
             return ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(grouped.keys.sorted(), id: \.self) { audioId in
+                    ForEach(ordered, id: \.self) { audioId in
                         HStack(spacing: 6) {
                             Text(fileLabel(audioId))
                                 .font(.caption)
@@ -130,19 +139,10 @@
             return (path as NSString).lastPathComponent
         }
 
-        private func hitTest(_ point: CGPoint, in size: CGSize) -> Int? {
-            let side = min(size.width, size.height)
-            var best: (index: Int, distance: Double)?
-            for dot in dots {
-                let dx = Double(point.x) - dot.x * Double(size.width)
-                let dy = Double(point.y) - dot.y * Double(size.height)
-                let distance = (dx * dx + dy * dy).squareRoot()
-                let hitRadius = max(dot.radius * Double(side), 6)
-                if distance <= hitRadius, distance < (best?.distance ?? .infinity) {
-                    best = (dot.segmentIndex, distance)
-                }
-            }
-            return best?.index
+        private func hitTest(_ dots: [ConstellationLayout.Dot], _ point: CGPoint) -> Int? {
+            ConstellationLayout.hitTest(
+                dots: dots, x: Double(point.x), y: Double(point.y),
+                width: Double(Self.mapSize.width), height: Double(Self.mapSize.height))
         }
     }
 

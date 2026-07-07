@@ -43,11 +43,16 @@
         /// memory instead of refetching (§5.1).
         @ObservationIgnored private let tileCache = TileCache(limitBytes: 64 << 20)
         @ObservationIgnored private var inflight: [TileKey: Task<Void, Never>] = [:]
+        @ObservationIgnored private var inflightTokens: [TileKey: UUID] = [:]
         @ObservationIgnored private var lodFade: LodFade
         @ObservationIgnored private var laneTask: Task<Void, Never>?
         @ObservationIgnored private var magicTask: Task<Void, Never>?
         @ObservationIgnored private var auditionTask: Task<Void, Never>?
+        /// Bumped per audition so a superseded task's preview-clear no-ops.
+        @ObservationIgnored private var auditionGeneration = 0
         @ObservationIgnored private var similarTask: Task<Void, Never>?
+        /// Ribbons per selection id, kept for undo/redo restore (§5.7).
+        @ObservationIgnored private var magicSelections: [String: MagicSelection] = [:]
         @ObservationIgnored private var enabledLaneKinds: [String] = []
         /// Selection-drag anchor in (seconds, Hz).
         @ObservationIgnored private var dragAnchor: (t: Double, f: Double)?
@@ -65,6 +70,10 @@
         /// Engage/clear the EQ quick preview while the render is in flight
         /// (§5.5): non-nil f0/f1 = engage band, (nil, nil) = clear.
         @ObservationIgnored var onPreviewBand: ((Double?, Double?) -> Void)?
+        /// Start the main transport if idle — makes the quick preview audible.
+        @ObservationIgnored var onPreviewPlay: (() -> Void)?
+        /// Magic selection committed/cleared — route into undoable state.
+        @ObservationIgnored var onMagicSelectionChanged: ((String?) -> Void)?
 
         struct FeatureLane: Identifiable {
             var kind: String
@@ -262,19 +271,29 @@
             for (key, task) in inflight where !wanted.contains(key) {
                 task.cancel()
                 inflight[key] = nil
+                inflightTokens[key] = nil
             }
             for key in keys { ensureTile(key) }
         }
 
         private func ensureTile(_ key: TileKey) {
             guard !atlas.contains(key), inflight[key] == nil else { return }
+            let token = UUID()
+            inflightTokens[key] = token
             inflight[key] = Task { [weak self] in
-                await self?.fetchTile(key)
+                await self?.fetchTile(key, token: token)
             }
         }
 
-        private func fetchTile(_ key: TileKey) async {
-            defer { inflight[key] = nil }
+        private func fetchTile(_ key: TileKey, token: UUID) async {
+            defer {
+                // Token guard: a cancelled fetch's teardown must not clobber a
+                // NEWER task's inflight entry (would allow duplicate fetches).
+                if inflightTokens[key] == token {
+                    inflight[key] = nil
+                    inflightTokens[key] = nil
+                }
+            }
             if let cached = await tileCache.tile(for: key) {
                 uploadTile(cached.data, shape: cached.shape, for: key)
                 return
@@ -341,12 +360,7 @@
                         let series = table.buckets?["value"]
                             ?? table.columns.first.flatMap({ table.buckets?[$0] })
                     else { continue }
-                    // Server buckets → per-pixel min/max via CurveLane: feed
-                    // mins and maxs as two sample sets over the same times.
-                    let raw = CurveLane.minMaxBuckets(
-                        values: (series.min + series.max).map { Float($0) },
-                        times: series.t + series.t,
-                        viewport: target)
+                    let raw = CurveLane.buckets(from: series, viewport: target)
                     next.append(
                         FeatureLane(kind: kind, buckets: CurveLane.normalized(raw)))
                 } catch is CancellationError {
@@ -384,24 +398,42 @@
         func clearMagicSelection() {
             magicSelection = nil
             magicStatus = nil
+            onMagicSelectionChanged?(nil)
+        }
+
+        // MARK: - Job following (shared by magic select / audition / search)
+
+        /// Follow a submitted job to its terminal event: result_ref on
+        /// success, or the terminal status line for the status text.
+        private func awaitResultRef(jobId: String) async throws
+            -> Result<[String: JSONValue], String>
+        {
+            for try await event in client.jobEvents(id: jobId) {
+                guard event.isTerminal else { continue }
+                if event.name == "done", let ref = event.job.resultRef {
+                    return .success(ref)
+                }
+                return .failure("\(event.name): \(event.job.message)")
+            }
+            return .failure("stream ended without a terminal event")
         }
 
         // MARK: - Audition (§5.5): hear the selection in isolation
 
         /// Audition the current magic selection (preferred) or the drag
-        /// selection rectangle. Engages the EQ quick preview immediately; the
-        /// exact backend render (STFT → feathered mask → ISTFT) replaces it
-        /// when the job lands. Identical requests are params-hash cached
-        /// server-side, so replays start instantly.
+        /// selection rectangle. The §5.5 quick preview engages immediately —
+        /// EQ band-pass over the ORIGINAL, seeked to the selection start and
+        /// playing — and the exact backend render (STFT → feathered mask →
+        /// ISTFT) replaces it when the job lands. Identical requests are
+        /// params-hash cached server-side, so replays start instantly.
         func audition(selection: Selection?) {
             let mode: AuditionMode
-            var previewLow: Double?
-            var previewHigh: Double?
+            var band: (lo: Double, hi: Double)?
+            var startTime: Double?
             if let magic = magicSelection {
                 mode = .selection(id: magic.selectionId)
-                let bounds = magic.ribbons.flatMap(\.intervals)
-                previewLow = bounds.map(\.fLo).min()
-                previewHigh = bounds.map(\.fHi).max()
+                band = magic.frequencyBounds
+                startTime = magic.timeBounds?.t0
             } else if let selection {
                 var mask: [String: Double] = [
                     "t0": min(selection.t0, selection.t1),
@@ -410,19 +442,20 @@
                 if let f0 = selection.f0, let f1 = selection.f1 {
                     mask["f0"] = min(f0, f1)
                     mask["f1"] = max(f0, f1)
-                    previewLow = min(f0, f1)
-                    previewHigh = max(f0, f1)
+                    band = (min(f0, f1), max(f0, f1))
                 }
                 mode = .mask(mask)
+                startTime = min(selection.t0, selection.t1)
             } else {
                 auditionStatus = "Nothing to audition — drag a box or magic-select first."
                 return
             }
-            auditionTask?.cancel()
-            auditionStatus = "Rendering audition… (EQ preview approximates it)"
-            onPreviewBand?(previewLow, previewHigh)
+            let generation = beginAudition(status: "Rendering audition… (EQ preview playing)")
+            onPreviewBand?(band?.lo, band?.hi)
+            if let startTime { onSeek?(startTime) }
+            onPreviewPlay?()
             auditionTask = Task { [weak self] in
-                await self?.runAudition(mode: mode)
+                await self?.runAudition(mode: mode, generation: generation)
             }
         }
 
@@ -432,32 +465,44 @@
             else { return }
             let segment = segments[index]
             let targetId = segment.audioId ?? file.id
-            auditionTask?.cancel()
-            auditionStatus = "Rendering segment audition…"
+            let generation = beginAudition(status: "Rendering segment audition…")
             auditionTask = Task { [weak self] in
                 await self?.runAudition(
-                    mode: .segments([[segment.t0, segment.t1]]), audioId: targetId)
+                    mode: .segments([[segment.t0, segment.t1]]), generation: generation,
+                    audioId: targetId)
             }
         }
 
-        private func runAudition(mode: AuditionMode, audioId: String? = nil) async {
-            defer { onPreviewBand?(nil, nil) }
+        private func beginAudition(status: String) -> Int {
+            auditionTask?.cancel()
+            auditionGeneration += 1
+            auditionStatus = status
+            return auditionGeneration
+        }
+
+        private func runAudition(
+            mode: AuditionMode, generation: Int, audioId: String? = nil
+        ) async {
+            defer {
+                // Only the newest audition may clear the preview — a
+                // superseded task's teardown must not kill its successor's
+                // freshly engaged band.
+                if generation == auditionGeneration { onPreviewBand?(nil, nil) }
+            }
             do {
                 let created = try await client.audition(
                     audioId: audioId ?? file.id, mode: mode)
-                for try await event in client.jobEvents(id: created.jobId) {
-                    guard event.isTerminal else { continue }
-                    if event.name == "done", let ref = event.job.resultRef,
-                        let wavPath = (ref["wavPath"] ?? ref["wav_path"])?.stringValue
-                    {
-                        let path =
-                            wavPath.hasPrefix("/") ? wavPath : projectRoot + "/" + wavPath
-                        auditionStatus = "Playing audition render"
-                        onAuditionReady?(URL(fileURLWithPath: path))
-                    } else {
-                        auditionStatus = "Audition \(event.name): \(event.job.message)"
+                switch try await awaitResultRef(jobId: created.jobId) {
+                case .success(let ref):
+                    guard let result = AuditionResult(resultRef: ref) else {
+                        auditionStatus = "Audition returned an unexpected payload"
+                        return
                     }
-                    return
+                    auditionStatus = "Playing audition render"
+                    onAuditionReady?(
+                        URL(fileURLWithPath: result.absolutePath(projectRoot: projectRoot)))
+                case .failure(let message):
+                    auditionStatus = "Audition \(message)"
                 }
             } catch is CancellationError {
                 // Superseded by a newer audition.
@@ -494,19 +539,18 @@
             do {
                 let created = try await client.selectSimilar(
                     audioId: file.id, t0: t0, t1: t1, targets: .all, embed: true)
-                for try await event in client.jobEvents(id: created.jobId) {
-                    guard event.isTerminal else { continue }
-                    if event.name == "done", let ref = event.job.resultRef,
-                        let result = SimilarSearchResult(resultRef: ref)
-                    {
-                        similarResult = result
-                        let files = Set(result.segments.compactMap(\.audioId)).count
-                        similarStatus =
-                            "\(result.segments.count) matches across \(max(files, 1)) file(s)"
-                    } else {
-                        similarStatus = "Search \(event.name): \(event.job.message)"
+                switch try await awaitResultRef(jobId: created.jobId) {
+                case .success(let ref):
+                    guard let result = SimilarSearchResult(resultRef: ref) else {
+                        similarStatus = "Search returned an unexpected payload"
+                        return
                     }
-                    return
+                    similarResult = result
+                    let files = Set(result.segments.compactMap(\.audioId)).count
+                    similarStatus =
+                        "\(result.segments.count) matches across \(max(files, 1)) file(s)"
+                case .failure(let message):
+                    similarStatus = "Search \(message)"
                 }
             } catch is CancellationError {
                 // Superseded by a newer search.
@@ -518,23 +562,45 @@
         private func runMagicSelect(seed: [String: Double]) async {
             do {
                 let created = try await client.magicSelect(audioId: file.id, seed: seed)
-                for try await event in client.jobEvents(id: created.jobId) {
-                    guard event.isTerminal else { continue }
-                    if event.name == "done", let ref = event.job.resultRef,
-                        let selection = MagicSelection(resultRef: ref)
-                    {
-                        magicSelection = selection
-                        let cells = selection.cells.map { " (\($0) cells)" } ?? ""
-                        magicStatus = "\(selection.ribbons.count) ribbon slices\(cells)"
-                    } else {
-                        magicStatus = "Magic select \(event.name): \(event.job.message)"
+                switch try await awaitResultRef(jobId: created.jobId) {
+                case .success(let ref):
+                    guard let selection = MagicSelection(resultRef: ref) else {
+                        magicStatus = "Magic select returned an unexpected payload"
+                        return
                     }
-                    return
+                    magicSelections[selection.selectionId] = selection
+                    magicSelection = selection
+                    let cells = selection.cells.map { " (\($0) cells)" } ?? ""
+                    magicStatus = "\(selection.ribbons.count) ribbon slices\(cells)"
+                    // §5.7: the magic selection is undoable editor state; the
+                    // pane routes this into DocumentStore as .setMagicSelection.
+                    onMagicSelectionChanged?(selection.selectionId)
+                case .failure(let message):
+                    magicStatus = "Magic select \(message)"
                 }
             } catch is CancellationError {
                 // Superseded by a newer request.
             } catch {
                 magicStatus = "Magic select failed: \(error)"
+            }
+        }
+
+        /// Follow undo/redo of `EditorState.magicSelectionId`: restore the
+        /// cached ribbons for that id, or clear. Ids not seen this session
+        /// clear with a hint (ribbon geometry is derived data; re-running
+        /// magic select re-fetches it from the backend's cache instantly).
+        func syncMagicSelection(to id: String?) {
+            guard id != magicSelection?.selectionId else { return }
+            if let id {
+                if let cached = magicSelections[id] {
+                    magicSelection = cached
+                    magicStatus = "\(cached.ribbons.count) ribbon slices (restored)"
+                } else {
+                    magicSelection = nil
+                    magicStatus = "Magic selection not cached — re-run magic select"
+                }
+            } else {
+                magicSelection = nil
             }
         }
     }

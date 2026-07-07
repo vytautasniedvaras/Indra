@@ -137,8 +137,8 @@ public final class DocumentStore {
                 return
             }
             forward { try await $0.deleteAnnotation(id: serverId) }
-        case .setActiveAudio, .setSelection, .toggleLens:
-            break  // local-only (§5.7)
+        case .setActiveAudio, .setSelection, .setMagicSelection, .toggleLens:
+            break  // local-only (§5.7); magic ribbons are regenerable cache data
         }
     }
 

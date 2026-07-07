@@ -169,6 +169,21 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       per-file match pills; clicking either auditions that segment cross-file via the
       segments render. SMOKE_TESTS item 7 covers verification.
 
+## Phase 4 review pass (2026-07-07, two-axis: standards + spec)
+
+Applied: EQ-preview generation guard (superseded audition no longer kills its successor's
+band); §5.5 audible preview (audition seeks + starts the transport); §5.7 magic selection
+now undoable (EditorState.magicSelectionId + .setMagicSelection, ribbons cached per id and
+restored on ⌘Z); shared job-follow helper (awaitResultRef); wireValue dual-key seam +
+AuditionResult in Core; formulas moved to Core with tests (constellation hit test,
+CurveLane.buckets(from:), MagicSelection.frequency/timeBounds); tile-fetch token guard;
+canvas cancels superseded work on file switch; seed-file-first pill rows.
+
+Deferred UI polish (backlog, not blocking): ringed seed star in the constellation;
+client-side distance re-threshold slider; lasso multi-segment selection + verbs; pill
+click scroll-to-match navigation; tap-and-hold live tolerance drag; audition feather
+(fade_hz/fade_ms) controls; onset lane UI over the repick/commit endpoints.
+
 ## Deviations from BUILD_SPEC.md
 
 1. **MPT vendored, not pip-installed** (ADR 0011): the spec's canonical

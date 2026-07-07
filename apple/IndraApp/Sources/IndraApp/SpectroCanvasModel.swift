@@ -403,11 +403,14 @@
 
         // MARK: - Job following (shared by magic select / audition / search)
 
-        /// Follow a submitted job to its terminal event: result_ref on
-        /// success, or the terminal status line for the status text.
-        private func awaitResultRef(jobId: String) async throws
-            -> Result<[String: JSONValue], String>
-        {
+        /// A followed job's terminal outcome: result_ref, or the status line.
+        enum JobOutcome {
+            case success([String: JSONValue])
+            case failure(String)
+        }
+
+        /// Follow a submitted job to its terminal event.
+        private func awaitResultRef(jobId: String) async throws -> JobOutcome {
             for try await event in client.jobEvents(id: jobId) {
                 guard event.isTerminal else { continue }
                 if event.name == "done", let ref = event.job.resultRef {
@@ -546,7 +549,7 @@
                         return
                     }
                     similarResult = result
-                    let files = Set(result.segments.compactMap(\.audioId)).count
+                    let files = Set(result.segments.compactMap { $0.audioId }).count
                     similarStatus =
                         "\(result.segments.count) matches across \(max(files, 1)) file(s)"
                 case .failure(let message):

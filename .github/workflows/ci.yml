@@ -41,13 +41,13 @@ jobs:
         if: steps.kit.outputs.present == 'true'
         working-directory: apple/IndraKit
         run: |
-          swift build --target IndraKitCore
-          swift build --target IndraKitNet
+          ../../scripts/annotate-swift.sh swift build --target IndraKitCore
+          ../../scripts/annotate-swift.sh swift build --target IndraKitNet
       - name: Test
         if: steps.kit.outputs.present == 'true'
         working-directory: apple/IndraKit
-        run: swift test --parallel
+        run: ../../scripts/annotate-swift.sh swift test --parallel
       - name: Build app package (Linux stub, structural check)
         if: steps.kit.outputs.present == 'true'
         working-directory: apple/IndraApp
-        run: swift build
+        run: ../../scripts/annotate-swift.sh swift build

@@ -11,7 +11,7 @@ anything load-bearing.
 
 Rules that are easy to get wrong:
 
-- Work on branch `claude/fable-research-implementation-8z004i`; PR per phase; NEVER push main.
+- Work on branch `feature/phases-0-4`; PR per phase; NEVER push main.
 - Commits: ONE short functional line, conventional prefix (feat:/fix:/docs:/test:/chore:),
   no bodies unless necessary, NO attribution trailers, NO session links.
 - Backend gate before any push: `cd backend && .venv/bin/ruff check src tests &&

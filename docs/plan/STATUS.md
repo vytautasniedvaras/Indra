@@ -144,9 +144,17 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       view for folder search results, feature overlays (lane + heat-ribbon modes),
       two-layer onset model (detected vs committed). Every interaction maps to an
       existing endpoint.
-- [ ] Metal tile renderer (§5.3): MTKView canvas, tile atlas, colormap/freq-scale LUT shaders,
-      LOD cross-fade, overlays (playhead/selection/lanes) — consumes the IndraKitCore math
-      (agent writing it now; macOS CI job added so it compiles in CI, not just on the Mac)
+- [x] Metal tile renderer (§5.3, ADR 0013): MTKView canvas + tile-atlas
+      (texture2d_array, LRU AtlasIndex), colormap + linear/log frequency LUTs applied
+      in-shader (runtime-compiled MSL), LOD cross-fade, coarse-LOD placeholder stretch;
+      SwiftUI-Canvas overlay layer (playhead, selection, magic-select ribbons, min/max
+      curve lanes); gesture layer (scroll pan, anchor-fixed pinch zoom, ⌥ freq zoom, drag
+      select, ⌥-click magic select); Metal/CPU A/B toggle in FileDetailView. Render math
+      lives in IndraKitCore with ~30 Linux-CI tests (SpecAtlas, SpecRenderPlan,
+      FrequencyLUT, MagicSelection, FeatureTable); APIClient grew magicSelect +
+      featureTable. Deliberate deviation from §5.3 recorded in ADR 0013: full-height tile
+      slabs, freq remap in-shader (not 512×256 sub-tiles). macOS CI compiles the real app.
+      **Mac smoke test queued** (SMOKE_TESTS.md item 7).
 - [ ] Gesture layer (scroll/magnify/drag on subclassed MTKView)
 - [ ] Audition wiring in the app (selection → POST /audition → play rendered WAV)
 - [ ] Quick-preview EQ fallback while audition renders (§5.5)

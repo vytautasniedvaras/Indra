@@ -1,9 +1,9 @@
 // Debug canvas: CPU-drawn waveform min/max peaks (SwiftUI Canvas) + a CGImage
 // spectrogram built from a /spec/tile slab through a local grayscale LUT.
-// This is the Phase 3 harness canvas — the Metal tile renderer (BUILD_SPEC
-// §5.3) replaces it in Phase 4 proper; do NOT grow this into a product
-// surface. USER-SMOKE-TESTED ONLY — not CI-verifiable; see
-// docs/plan/SMOKE_TESTS.md (Phase 4).
+// This is the Phase 3 harness canvas, kept behind FileDetailView's canvas
+// toggle as the A/B reference for the Metal tile renderer (BUILD_SPEC §5.3,
+// ADR 0013); do NOT grow this into a product surface. USER-SMOKE-TESTED ONLY
+// — not CI-verifiable; see docs/plan/SMOKE_TESTS.md (Phase 4).
 
 #if os(macOS) && canImport(SwiftUI)
 
@@ -25,7 +25,7 @@
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Waveform (debug canvas — Metal renderer lands in Phase 4)")
+                Text("Waveform (CPU debug canvas — A/B reference for the Metal renderer)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 waveformCanvas

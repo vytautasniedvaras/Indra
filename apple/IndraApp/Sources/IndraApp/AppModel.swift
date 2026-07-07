@@ -136,6 +136,25 @@
             dispatch(.addAnnotation(annotation))
         }
 
+        // Selection-drag coalescing passthroughs (one drag = one undo step,
+        // §5.7): the Metal canvas brackets its drag with these.
+
+        func beginSelectionDrag(_ selection: Selection?) {
+            store?.beginSelectionDrag()
+            if let selection { store?.updateSelectionDrag(selection) }
+            syncFromStore()
+        }
+
+        func updateSelectionDrag(_ selection: Selection?) {
+            store?.updateSelectionDrag(selection)
+            syncFromStore()
+        }
+
+        func endSelectionDrag() {
+            store?.endSelectionDrag()
+            syncFromStore()
+        }
+
         /// DocumentStore.undo()/redo() already POST /undo //redo for
         /// annotation-scoped steps; local-only steps never leave the process.
         func undo() {

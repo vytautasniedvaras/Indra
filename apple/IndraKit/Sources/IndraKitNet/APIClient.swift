@@ -117,6 +117,44 @@ public struct APIClient: Sendable {
         return try await tile(path: "/files/\(audioId)/spec/tile", query: query)
     }
 
+    /// POST /select/magic — magic-wand region grow on the dB pyramid
+    /// (docs/api.md). `seed` is either a point `["t": …, "f": …]` or a box
+    /// `["t0": …, "t1": …, "f0": …, "f1": …]`. Ribbons arrive in the job's
+    /// result_ref (parse with MagicSelection).
+    public func magicSelect(
+        audioId: String, seed: [String: Double], toleranceDb: Double? = nil,
+        contiguous: Bool? = nil, adapt: String? = nil, maxExtentS: Double? = nil
+    ) async throws -> JobCreated {
+        var body: [String: JSONValue] = [
+            "audio_id": .string(audioId),
+            "seed": .object(seed.mapValues { JSONValue.number($0) }),
+        ]
+        if let toleranceDb { body["tolerance_db"] = .number(toleranceDb) }
+        if let contiguous { body["contiguous"] = .bool(contiguous) }
+        if let adapt { body["adapt"] = .string(adapt) }
+        if let maxExtentS { body["max_extent_s"] = .number(maxExtentS) }
+        return try await post("/select/magic", body: body)
+    }
+
+    /// GET /files/{id}/features/{kind} — a computed feature curve, min/max
+    /// bucketed to `downsample` display columns when given (§4.4; raw values
+    /// are capped server-side at 20 000 points). Decoded with the plain
+    /// decoder so bucket column names survive verbatim (see FeatureTable).
+    public func featureTable(
+        audioId: String, kind: String, t0: Double? = nil, t1: Double? = nil,
+        downsample: Int? = nil, key: String? = nil
+    ) async throws -> FeatureTable {
+        var query: [(String, String)] = []
+        if let t0 { query.append(("t0", "\(t0)")) }
+        if let t1 { query.append(("t1", "\(t1)")) }
+        if let downsample { query.append(("downsample", "\(downsample)")) }
+        if let key { query.append(("key", key)) }
+        let (data, info) = try await transport.send(
+            makeRequest(path: "/files/\(audioId)/features/\(kind)", method: "GET", query: query))
+        guard (200..<300).contains(info.statusCode) else { throw apiError(data, info) }
+        return try FeatureTable.decode(data)
+    }
+
     public func annotations(audioId: String) async throws -> [AnnotationRecord] {
         try await get("/annotations", query: [("audio_id", audioId)])
     }

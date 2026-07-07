@@ -90,10 +90,27 @@ public enum TilePlanner {
         margin: Double = defaultMargin,
         tileColumns: Int = defaultTileColumns
     ) -> [TileKey] {
+        specTiles(
+            audioId: audioId, viewport: viewport, manifest: manifest, sr: sr,
+            lod: specLod(for: viewport, manifest: manifest, sr: sr),
+            margin: margin, tileColumns: tileColumns)
+    }
+
+    /// Same tile emission at an explicitly chosen LOD. Used by the renderer's
+    /// LOD cross-fade (§5.3): during the 100 ms fade the outgoing LOD's tiles
+    /// are still planned/drawn even though `specLod` already picks the new one.
+    public static func specTiles(
+        audioId: String,
+        viewport: Viewport,
+        manifest: SpecManifest,
+        sr: Int,
+        lod lodValue: Int,
+        margin: Double = defaultMargin,
+        tileColumns: Int = defaultTileColumns
+    ) -> [TileKey] {
         guard sr > 0, manifest.hop > 0, tileColumns > 0, viewport.timeSpan > 0,
             !manifest.lods.isEmpty
         else { return [] }
-        let lodValue = specLod(for: viewport, manifest: manifest, sr: sr)
         guard let lod = manifest.lods.first(where: { $0.lod == lodValue }) ?? manifest.lods.last,
             lod.frames > 0, lod.framesPerColumn > 0
         else { return [] }

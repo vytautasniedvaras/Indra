@@ -2,4 +2,4 @@
 
 __version__ = "0.1.0"
 
-ENGINE_VERSION = "indra-engine 0.2.0"  # 0.2.0: fixed-Hz band profiles in select
+ENGINE_VERSION = "indra-engine 0.2.1"  # 0.2.1: seed_xy in select embeddings

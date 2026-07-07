@@ -82,8 +82,20 @@
         /// separate visually without anyone defining classes up front.
         private var starfield: some View {
             let dots = self.dots  // one layout per body evaluation, not per hover
+            let seed = ConstellationLayout.seedPoint(for: result)
             return Canvas { context, size in
                 let side = min(size.width, size.height)
+                if let seed {
+                    // The seed: a ringed star among its matches (ux §3).
+                    let r = 0.035 * side
+                    let rect = CGRect(
+                        x: seed.x * size.width - r, y: seed.y * size.height - r,
+                        width: r * 2, height: r * 2)
+                    context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.9)))
+                    context.stroke(
+                        Path(ellipseIn: rect.insetBy(dx: -3, dy: -3)),
+                        with: .color(.white.opacity(0.7)), lineWidth: 1.5)
+                }
                 for dot in dots {
                     let rect = CGRect(
                         x: dot.x * size.width - dot.radius * side,

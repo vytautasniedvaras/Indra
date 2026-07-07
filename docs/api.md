@@ -135,9 +135,10 @@ catches steady and evolving textures.
   `use_features` is single-file only — sending it together with `targets` is a 400.
 - All job `result_ref`s additionally carry `kind` and `audio_id` (job envelope fields).
 - `embed: true` (with `targets`) attaches `embedding: { xy: [[x,y],…], cluster: [int,…],
-  n_clusters }` — 2-D PCA coordinates plus average-linkage cosine clusters (cut at 0.4, the
-  search-threshold scale) per segment, in segment order: everything a cluster-map view
-  needs for the varied classes that come back.
+  n_clusters, seed_xy: [x,y] }` — 2-D PCA coordinates plus average-linkage cosine clusters
+  (cut at 0.4, the search-threshold scale) per segment, in segment order, and the seed
+  itself projected into the same plane: everything a cluster-map view needs for the varied
+  classes that come back.
 
 ### `POST /onsets/repick` (synchronous)
 `{ "audio_id", "key"?, "delta"?, "wait_s"?, "pre_max_s"?, "post_max_s"?, "pre_avg_s"?,

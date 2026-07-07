@@ -30,6 +30,11 @@
         private(set) var displayLod = 0
         private(set) var magicSelection: MagicSelection?
         private(set) var magicStatus: String?
+        /// Tolerance used for the current/next magic select (dB, ux §1).
+        private(set) var magicToleranceDb = 8.0
+        /// Audition feather controls (§5.5): frequency and time edge softness.
+        var auditionFadeHz = 50.0
+        var auditionFadeMs = 15.0
         private(set) var auditionStatus: String?
         private(set) var similarResult: SimilarSearchResult?
         private(set) var similarStatus: String?
@@ -59,6 +64,9 @@
         @ObservationIgnored private var onsetTask: Task<Void, Never>?
         /// Ribbons per selection id, kept for undo/redo restore (§5.7).
         @ObservationIgnored private var magicSelections: [String: MagicSelection] = [:]
+        /// Seed of the most recent magic select — the live tolerance slider
+        /// re-grows from the same spot (server-cached per tolerance).
+        @ObservationIgnored private var lastMagicSeed: [String: Double]?
         @ObservationIgnored private var enabledLaneKinds: [String] = []
         /// Selection-drag anchor in (seconds, Hz).
         @ObservationIgnored private var dragAnchor: (t: Double, f: Double)?
@@ -408,9 +416,25 @@
         }
 
         func magicSelect(seed: [String: Double]) {
+            lastMagicSeed = seed
             magicTask?.cancel()
             magicStatus = "Magic select running…"
             magicTask = Task { [weak self] in
+                await self?.runMagicSelect(seed: seed)
+            }
+        }
+
+        /// Live tolerance (ux §1): re-grow from the SAME seed at a new
+        /// tolerance. Debounced; each tolerance is a distinct cache key
+        /// server-side, so scrubbing back and forth is instant on revisits.
+        func setMagicTolerance(_ toleranceDb: Double) {
+            magicToleranceDb = toleranceDb
+            guard let seed = lastMagicSeed else { return }
+            magicTask?.cancel()
+            magicStatus = String(format: "Re-growing at ±%.0f dB…", toleranceDb)
+            magicTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                guard !Task.isCancelled else { return }
                 await self?.runMagicSelect(seed: seed)
             }
         }
@@ -453,8 +477,12 @@
             let mode: AuditionMode
             var band: (lo: Double, hi: Double)?
             var startTime: Double?
+            // Feather (§5.5): omit defaults so the common case shares the
+            // server cache entry with parameterless requests.
+            let fadeHz: Double? = auditionFadeHz == 50 ? nil : auditionFadeHz
+            let fadeMs: Double? = auditionFadeMs == 15 ? nil : auditionFadeMs
             if let magic = magicSelection {
-                mode = .selection(id: magic.selectionId)
+                mode = .selection(id: magic.selectionId, fadeHz: fadeHz, fadeMs: fadeMs)
                 band = magic.frequencyBounds
                 startTime = magic.timeBounds?.t0
             } else if let selection {
@@ -467,6 +495,8 @@
                     mask["f1"] = max(f0, f1)
                     band = (min(f0, f1), max(f0, f1))
                 }
+                if let fadeHz { mask["fade_hz"] = fadeHz }
+                if let fadeMs { mask["fade_ms"] = fadeMs }
                 mode = .mask(mask)
                 startTime = min(selection.t0, selection.t1)
             } else {
@@ -584,7 +614,8 @@
 
         private func runMagicSelect(seed: [String: Double]) async {
             do {
-                let created = try await client.magicSelect(audioId: file.id, seed: seed)
+                let created = try await client.magicSelect(
+                    audioId: file.id, seed: seed, toleranceDb: magicToleranceDb)
                 switch try await awaitResultRef(jobId: created.jobId) {
                 case .success(let ref):
                     guard let selection = MagicSelection(resultRef: ref) else {

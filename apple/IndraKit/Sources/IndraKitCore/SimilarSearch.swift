@@ -29,11 +29,14 @@ public struct SegmentEmbedding: Sendable, Equatable {
     public var xy: [[Double]]
     public var cluster: [Int]
     public var nClusters: Int
+    /// The seed projected into the same plane (ringed star in the UI).
+    public var seedXY: [Double]?
 
-    public init(xy: [[Double]], cluster: [Int], nClusters: Int) {
+    public init(xy: [[Double]], cluster: [Int], nClusters: Int, seedXY: [Double]? = nil) {
         self.xy = xy
         self.cluster = cluster
         self.nClusters = nClusters
+        self.seedXY = seedXY
     }
 }
 
@@ -94,8 +97,16 @@ public struct SimilarSearchResult: Sendable, Equatable {
             }
             let nClusters = rawEmbedding.wireValue("nClusters", "n_clusters")?
                 .numberValue.map { Int($0) }
+            var seedXY: [Double]?
+            if case .array(let rawSeed)? = rawEmbedding.wireValue("seedXy", "seed_xy"),
+                rawSeed.count >= 2, let sx = rawSeed[0].numberValue,
+                let sy = rawSeed[1].numberValue
+            {
+                seedXY = [sx, sy]
+            }
             embedding = SegmentEmbedding(
-                xy: xy, cluster: cluster, nClusters: nClusters ?? Set(cluster).count)
+                xy: xy, cluster: cluster, nClusters: nClusters ?? Set(cluster).count,
+                seedXY: seedXY)
         }
         self.init(
             segments: segments, threshold: threshold, scanned: scanned, embedding: embedding)

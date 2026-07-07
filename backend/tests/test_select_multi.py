@@ -113,6 +113,16 @@ def test_multi_embedding_separates_classes(
     segments = result["segments"]
     embedding = result["embedding"]
     assert len(embedding["xy"]) == len(segments) == len(embedding["cluster"])
+    # the seed projects into the same plane, nearer its own kind than the
+    # impostors (the UI rings it there)
+    seed_xy = np.asarray(embedding["seed_xy"])
+    xy = np.asarray(embedding["xy"])
+    purr_positions = [xy[i] for i, s in enumerate(segments) if s["distance"] < 0.35]
+    impostor_positions = [xy[i] for i, s in enumerate(segments) if s["distance"] > 0.5]
+    assert purr_positions and impostor_positions
+    d_purr = float(np.linalg.norm(np.mean(purr_positions, axis=0) - seed_xy))
+    d_impostor = float(np.linalg.norm(np.mean(impostor_positions, axis=0) - seed_xy))
+    assert d_purr < d_impostor
     purr_clusters = {
         embedding["cluster"][i]
         for i, s in enumerate(segments)

@@ -99,10 +99,56 @@ def render_audition(
     }
 
 
+def _raised_cosine(n: int) -> NDArray[np.float32]:
+    """0→1 raised-cosine ramp, n samples (sin² of a quarter period)."""
+    amplitude = np.sin(np.linspace(0.0, np.pi / 2, n, dtype=np.float32))
+    ramp: NDArray[np.float32] = amplitude * amplitude
+    return ramp
+
+
+def _fade_piece_edges(piece: NDArray[np.float32], power_ramp: NDArray[np.float32]) -> None:
+    """Raised-cosine (power) fade-in/out on a segment's outer edges, in place.
+
+    `power_ramp` is the shared full-length crossfade ramp; segments shorter
+    than it get the partial slice, so the join's undo stays exact.
+    """
+    edge = min(len(power_ramp), piece.shape[0] // 2)
+    if edge <= 0:
+        return
+    ramp = power_ramp[:edge, np.newaxis]
+    piece[:edge] *= ramp
+    piece[piece.shape[0] - edge :] *= ramp[::-1]
+
+
+def _equal_power_join(
+    prev: NDArray[np.float32],
+    piece: NDArray[np.float32],
+    power_ramp: NDArray[np.float32],
+    amplitude_ramp: NDArray[np.float32],
+) -> NDArray[np.float32]:
+    """Overlap `piece`'s head onto `prev`'s tail with an equal-power crossfade.
+
+    Both edges already carry raised-cosine (power) fades from
+    _fade_piece_edges; an equal-power joint needs AMPLITUDE fades (sin/cos, so
+    sin²+cos²=1). Rather than special-casing the fade application, undo the
+    power window on the overlapping region and re-apply the amplitude window.
+    Mutates prev's tail; returns piece with the overlapped head trimmed.
+    """
+    overlap = min(len(power_ramp), piece.shape[0] // 2, prev.shape[0])
+    if overlap <= 0:
+        return piece
+    power = power_ramp[:overlap, np.newaxis]
+    amplitude = amplitude_ramp[:overlap, np.newaxis]
+    head = piece[:overlap] / np.maximum(power, 1e-6) * amplitude
+    tail = prev[-overlap:] / np.maximum(power[::-1], 1e-6) * amplitude[::-1]
+    prev[-overlap:] = tail + head
+    return piece[overlap:]
+
+
 def _fade_edges(rendered: NDArray[np.float32], sr: int, fade_ms: float) -> None:
     n_frames = rendered.shape[0]
     fade_n = min(n_frames // 2, max(1, round(fade_ms / 1000.0 * sr)))
-    ramp = np.sin(np.linspace(0.0, np.pi / 2, fade_n, dtype=np.float32)) ** 2
+    ramp = _raised_cosine(fade_n)
     rendered[:fade_n] *= ramp[:, np.newaxis]
     rendered[n_frames - fade_n :] *= ramp[::-1][:, np.newaxis]
 
@@ -139,7 +185,9 @@ def render_ribbons_audition(
         raise ValueError("selection too short to audition (needs >= one STFT window)")
 
     n_bins = N_FFT // 2 + 1
-    n_cols = 1 + (n_frames - N_FFT) // HOP + N_FFT // HOP  # stft(center=True) column count ~
+    # Upper bound on librosa.stft(center=True) column count for n_frames; the
+    # render loop below clips to the actual spectrum width per channel.
+    n_cols = 1 + (n_frames - N_FFT) // HOP + N_FFT // HOP
     # Build the binary mask on the audition STFT grid.
     hz_per_bin = sr / N_FFT
     mask = np.zeros((n_bins, n_cols), dtype=np.float32)
@@ -197,25 +245,17 @@ def render_segments_audition(
         raise ValueError(f"segments total {total:.0f}s; audition maximum is {MAX_AUDITION_S:.0f}s")
 
     fade_n = max(1, round(crossfade_ms / 1000.0 * sr))
-    fade_in = np.sin(np.linspace(0.0, np.pi / 2, fade_n, dtype=np.float32))[:, np.newaxis]
+    amplitude_ramp: NDArray[np.float32] = np.sin(
+        np.linspace(0.0, np.pi / 2, fade_n, dtype=np.float32)
+    )
+    power_ramp: NDArray[np.float32] = amplitude_ramp * amplitude_ramp
     pieces: list[NDArray[np.float32]] = []
     for index, (t0, t1) in enumerate(clean):
         check_cancel(cancel_event)
         piece = read_range(audio_path, round(t0 * sr), round(t1 * sr)).copy()
-        n = piece.shape[0]
-        edge = min(fade_n, n // 2)
-        piece[:edge] *= fade_in[:edge] ** 2  # raised cosine at outer edges
-        piece[n - edge :] *= (fade_in[:edge][::-1]) ** 2
-        if index > 0 and pieces and edge > 0:
-            # equal-power overlap with the previous tail
-            prev = pieces[-1]
-            overlap = min(edge, prev.shape[0])
-            head = piece[:overlap] / np.maximum(fade_in[:overlap] ** 2, 1e-6)  # undo, re-window
-            head = head * fade_in[:overlap]
-            tail = prev[-overlap:] / np.maximum((fade_in[:overlap][::-1]) ** 2, 1e-6)
-            tail = tail * fade_in[:overlap][::-1]
-            prev[-overlap:] = tail + head
-            piece = piece[overlap:]
+        _fade_piece_edges(piece, power_ramp)
+        if index > 0 and pieces:
+            piece = _equal_power_join(pieces[-1], piece, power_ramp, amplitude_ramp)
         pieces.append(piece)
     rendered = np.concatenate(pieces, axis=0)
     check_cancel(cancel_event)

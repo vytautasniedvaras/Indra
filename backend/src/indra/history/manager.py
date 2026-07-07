@@ -41,27 +41,12 @@ class HistoryManager:
     # -- annotation operations (forward actions) --------------------------------
 
     def create_annotation(self, fields: dict[str, Any]) -> dict[str, Any]:
-        with self._db.tx() as conn:
-            cursor = conn.execute(
-                "INSERT INTO annotations (audio_id, t0, t1, f0, f1, label, note)"
-                " VALUES (?,?,?,?,?,?,?)",
-                tuple(fields.get(f) for f in _ANNOTATION_FIELDS),
-            )
-            annotation_id = int(cursor.lastrowid or 0)
-            row = conn.execute("SELECT * FROM annotations WHERE id=?", (annotation_id,)).fetchone()
-            value = _annotation_value(row)
-            self._append(
-                conn,
-                "Add annotation",
-                forward=[{"op": "add", "path": f"/annotations/{annotation_id}", "value": value}],
-                inverse=[{"op": "remove", "path": f"/annotations/{annotation_id}"}],
-            )
-            return dict(row)
+        return self.create_annotations_batch([fields], "Add annotation")[0]
 
     def create_annotations_batch(
         self, fields_list: list[dict[str, Any]], action_name: str
     ) -> list[dict[str, Any]]:
-        """Insert many annotations as ONE undoable action (e.g. commit picked onsets)."""
+        """Insert annotations as ONE undoable action (e.g. commit picked onsets)."""
         if not fields_list:
             raise HistoryError("bad_request", "empty batch")
         with self._db.tx() as conn:

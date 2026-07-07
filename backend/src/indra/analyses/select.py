@@ -38,30 +38,58 @@ MAX_EXTENT_S = 600.0
 FloatArray = NDArray[np.float32]
 
 
-def _load_window(
-    spec_path: Path, t_center: float, extent_s: float
-) -> tuple[FloatArray, int, float, float, int]:
-    """Load a dB window (frames, bins) around t_center at the finest LOD that
-    fits the cell budget. Returns (window, lod, t_start_s, s_per_col, n_bins)."""
-    group = zarr.open_group(str(spec_path), mode="r")
-    sr = int(group.attrs["sr"])
-    hop = int(group.attrs["hop"])
-    n_bins = int(group.attrs["n_bins"])
-    levels = int(group.attrs["levels"])
+class SpecPyramid:
+    """The precomputed dB pyramid, opened once: attrs + LOD-budget choices."""
 
-    lod = 0
-    while lod < levels - 1:
-        s_per_col = hop * (2**lod) / sr
-        if (2 * extent_s / s_per_col) * n_bins <= MAX_WINDOW_CELLS:
-            break
-        lod += 1
-    arr = group[str(lod)]
-    s_per_col = hop * (2**lod) / sr
-    n_frames = int(arr.shape[0])
+    def __init__(self, spec_path: Path) -> None:
+        self.group = zarr.open_group(str(spec_path), mode="r")
+        self.sr = int(self.group.attrs["sr"])
+        self.hop = int(self.group.attrs["hop"])
+        self.n_fft = int(self.group.attrs["n_fft"])
+        self.n_bins = int(self.group.attrs["n_bins"])
+        self.levels = int(self.group.attrs["levels"])
+
+    @property
+    def hz_per_bin(self) -> float:
+        return self.sr / self.n_fft
+
+    def s_per_col(self, lod: int) -> float:
+        return float(self.hop * (2**lod)) / self.sr
+
+    def finest_lod_for_span(self, span_s: float) -> int:
+        """Finest LOD whose cell count over span_s fits the window budget."""
+        lod = 0
+        while lod < self.levels - 1:
+            if (span_s / self.s_per_col(lod)) * self.n_bins <= MAX_WINDOW_CELLS:
+                break
+            lod += 1
+        return lod
+
+    def finest_whole_file_lod(self) -> int:
+        """Finest LOD whose full array fits the window budget (coarsest fallback)."""
+        for lod in range(self.levels):
+            arr = self.group[str(lod)]
+            if int(arr.shape[0]) * int(arr.shape[1]) <= MAX_WINDOW_CELLS:
+                return lod
+        return self.levels - 1
+
+    def read(self, lod: int, c0: int = 0, c1: int | None = None) -> FloatArray:
+        arr = self.group[str(lod)]
+        # uint8 counts as dB*2.55 units
+        return np.asarray(arr[c0:c1] if c1 is not None else arr[:], dtype=np.float32)
+
+
+def _load_window(
+    pyramid: SpecPyramid, t_center: float, extent_s: float
+) -> tuple[FloatArray, int, float, float]:
+    """Load a dB window (frames, bins) around t_center at the finest LOD that
+    fits the cell budget. Returns (window, lod, t_start_s, s_per_col)."""
+    lod = pyramid.finest_lod_for_span(2 * extent_s)
+    s_per_col = pyramid.s_per_col(lod)
+    n_frames = int(pyramid.group[str(lod)].shape[0])
     c0 = max(0, int((t_center - extent_s) / s_per_col))
     c1 = min(n_frames, int((t_center + extent_s) / s_per_col) + 1)
-    window = np.asarray(arr[c0:c1], dtype=np.float32)  # uint8 counts as dB*2.55 units
-    return window, lod, c0 * s_per_col, s_per_col, n_bins
+    return pyramid.read(lod, c0, c1), lod, c0 * s_per_col, s_per_col
 
 
 def _adapted(window: FloatArray, adapt: str) -> FloatArray:
@@ -136,13 +164,10 @@ def magic_select(
     extent_s = min(float(params.get("max_extent_s", 120.0)), MAX_EXTENT_S)
 
     t_seed = float(seed.get("t", (float(seed.get("t0", 0)) + float(seed.get("t1", 0))) / 2))
-    window, lod, t_start, s_per_col, _n_bins = _load_window(spec_path, t_seed, extent_s)
+    pyramid = SpecPyramid(spec_path)
+    window, lod, t_start, s_per_col = _load_window(pyramid, t_seed, extent_s)
     check_cancel(cancel_event)
-
-    group = zarr.open_group(str(spec_path), mode="r")
-    sr = int(group.attrs["sr"])
-    n_fft = int(group.attrs["n_fft"])
-    hz_per_bin = sr / n_fft
+    hz_per_bin = pyramid.hz_per_bin
 
     levels = _adapted(window, adapt)
     cols, bins = _seed_cells(seed, t_start, s_per_col, hz_per_bin, levels.shape)
@@ -215,24 +240,14 @@ def file_profiles(spec_path: Path, cancel_event: CancelEvent) -> tuple[FloatArra
     """
     import scipy.ndimage
 
-    group = zarr.open_group(str(spec_path), mode="r")
-    sr = int(group.attrs["sr"])
-    hop = int(group.attrs["hop"])
-    n_fft = int(group.attrs["n_fft"])
-    levels = int(group.attrs["levels"])
+    pyramid = SpecPyramid(spec_path)
     # Coarse LOD: whole-file scan must stay bounded.
-    lod = levels - 1
-    for candidate in range(levels):
-        arr = group[str(candidate)]
-        if int(arr.shape[0]) * int(arr.shape[1]) <= MAX_WINDOW_CELLS:
-            lod = candidate
-            break
-    arr = group[str(lod)]
-    s_per_col = hop * (2**lod) / sr
-    spec = np.asarray(arr[:], dtype=np.float32)
+    lod = pyramid.finest_whole_file_lod()
+    s_per_col = pyramid.s_per_col(lod)
+    spec = pyramid.read(lod)
     check_cancel(cancel_event)
 
-    hz_per_bin = sr / n_fft
+    hz_per_bin = pyramid.hz_per_bin
     n_bins = spec.shape[1]
     n_cols = spec.shape[0]
     bands = []

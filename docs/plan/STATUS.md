@@ -170,6 +170,10 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
 
 ## Notes for the next session
 
+- **Knowledge graph** (user request 2026-07-07): `docs/knowledge/` — markdown-native graph
+  via Basic Memory (ADR 0014). Query with `scripts/bm` or the `basic-memory` MCP server
+  (.mcp.json). Root `CLAUDE.md` orients fresh sessions. Update the graph when landing
+  meaningful work (conventions: docs/knowledge/README.md).
 - `.claude/skills/` carries four vendored skills (mattpocock/skills @ 16a2a5c, MIT):
   `tdd`, `codebase-design`, `code-review`, `diagnosing-bugs`. **Use `diagnosing-bugs` for
   Mac-side smoke-test failures** (its feedback-loop-first discipline is exactly the

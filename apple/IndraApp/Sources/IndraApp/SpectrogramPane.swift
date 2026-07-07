@@ -30,12 +30,18 @@
             VStack(alignment: .leading, spacing: 6) {
                 if let canvas {
                     SpectroControls(canvas: canvas, features: model.manifest?.features ?? [])
+                    if model.manifest?.features.contains("onsets_superflux_pcen") == true {
+                        OnsetControls(canvas: canvas)
+                    }
                     ZStack {
                         SpectroMetalView(canvas: canvas)
                         SpectroOverlayView(
                             canvas: canvas,
                             selection: model.editor.selection,
-                            playheadTime: playheadTime
+                            playheadTime: playheadTime,
+                            committedOnsets: model.editor.annotations
+                                .filter { $0.label == "onset" && $0.t0 == $0.t1 }
+                                .map(\.t0)
                         )
                         .allowsHitTesting(false)
                     }
@@ -104,6 +110,9 @@
             next.onPreviewPlay = onPreviewPlay
             next.onMagicSelectionChanged = { [weak model] id in
                 model?.dispatch(.setMagicSelection(id))
+            }
+            next.onOnsetsCommitted = { [weak model] in
+                Task { await model?.reloadAnnotations() }
             }
             next.projectRoot = model.projectRoot
             next.setEnabledLanes(model.editor.lensesEnabled.sorted())
@@ -210,10 +219,61 @@
     /// and curve lanes. Observable reads happen in `body` (tracked); the
     /// Canvas closure only uses the captured values.
     @MainActor
+    /// Onset lane controls (ux §5): show/hide the detected layer, a live
+    /// sensitivity slider (each tick re-picks the SAVED envelope — no
+    /// recomputation), and one-undo-step commit to the annotation layer.
+    @MainActor
+    private struct OnsetControls: View {
+        let canvas: SpectroCanvasModel
+        @State private var sensitivity = 0.07  // librosa's default delta
+
+        var body: some View {
+            HStack(spacing: 10) {
+                if canvas.pickedOnsets == nil {
+                    Button("Show onsets") { canvas.repickOnsets(delta: nil) }
+                        .help("Overlay the detected onsets (re-pickable, non-destructive)")
+                } else {
+                    Button("Hide onsets") { canvas.hideOnsets() }
+                        .buttonStyle(.borderless)
+
+                    Text("Sensitivity")
+                        .font(.caption)
+                    Slider(
+                        value: Binding(
+                            get: { sensitivity },
+                            set: { newValue in
+                                sensitivity = newValue
+                                canvas.repickOnsets(delta: newValue)
+                            }),
+                        in: 0.01...0.6
+                    )
+                    .frame(width: 140)
+                    .help("Batch re-threshold: delta on the [0,1] envelope; lower = more onsets")
+
+                    Button("Commit \(canvas.pickedOnsets?.n ?? 0) onsets") {
+                        canvas.commitPickedOnsets()
+                    }
+                    .help("Materialize as point annotations — one undo step")
+                    .disabled((canvas.pickedOnsets?.n ?? 0) == 0)
+                }
+
+                if let status = canvas.onsetStatus {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+        }
+    }
+
     private struct SpectroOverlayView: View {
         let canvas: SpectroCanvasModel
         var selection: Selection?
         var playheadTime: Double
+        /// Committed onset annotations (label "onset", t0 == t1), in seconds.
+        var committedOnsets: [Double] = []
 
         private static let laneHeight: CGFloat = 44
         private static let laneColors: [Color] = [.cyan, .orange, .green, .pink, .yellow]
@@ -223,6 +283,8 @@
             let scale = canvas.frequencyScale
             let ribbons = canvas.magicSelection
             let lanes = canvas.lanes
+            let picked = canvas.pickedOnsets
+            let committed = committedOnsets
             let selection = selection
             let playhead = playheadTime
             return Canvas { context, size in
@@ -234,6 +296,7 @@
 
                 drawRibbons(ribbons, viewport, scale, fx, fy, &context)
                 drawLanes(lanes, size, &context)
+                drawOnsets(picked, committed, viewport, fx, size, &context)
                 drawSelection(selection, viewport, scale, fx, fy, size, &context)
                 drawPlayhead(playhead, viewport, fx, size, &context)
             }
@@ -271,6 +334,41 @@
             let rect = CGRect(x: x0, y: y0, width: max(x1 - x0, 1), height: max(y1 - y0, 1))
             context.fill(Path(rect), with: .color(.accentColor.opacity(0.12)))
             context.stroke(Path(rect), with: .color(.accentColor), lineWidth: 1)
+        }
+
+        /// Two-layer onset display (ux §5): DETECTED (regenerable pick) as
+        /// short top ticks with strength-scaled stems; COMMITTED (user-owned
+        /// annotations) as full-height hairlines. Visually distinct so a
+        /// re-threshold never appears to touch the user's layer.
+        private func drawOnsets(
+            _ picked: OnsetRepickResult?, _ committed: [Double],
+            _ viewport: Viewport, _ fx: CGFloat, _ size: CGSize,
+            _ context: inout GraphicsContext
+        ) {
+            if let picked {
+                var ticks = Path()
+                let maxStrength = max(picked.onsets.strength.max() ?? 1, 1e-9)
+                for (index, t) in picked.onsets.t.enumerated() {
+                    guard t >= viewport.t0, t <= viewport.t1 else { continue }
+                    let x = CGFloat(viewport.timeToX(t)) * fx
+                    let strength = index < picked.onsets.strength.count
+                        ? picked.onsets.strength[index] / maxStrength : 0.5
+                    let stem = 14 + CGFloat(strength) * 26
+                    ticks.move(to: CGPoint(x: x, y: 0))
+                    ticks.addLine(to: CGPoint(x: x, y: stem))
+                }
+                context.stroke(ticks, with: .color(.yellow.opacity(0.9)), lineWidth: 1.5)
+            }
+            if !committed.isEmpty {
+                var lines = Path()
+                for t in committed {
+                    guard t >= viewport.t0, t <= viewport.t1 else { continue }
+                    let x = CGFloat(viewport.timeToX(t)) * fx
+                    lines.move(to: CGPoint(x: x, y: 0))
+                    lines.addLine(to: CGPoint(x: x, y: size.height))
+                }
+                context.stroke(lines, with: .color(.mint.opacity(0.55)), lineWidth: 1)
+            }
         }
 
         private func drawPlayhead(

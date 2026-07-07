@@ -33,6 +33,11 @@
         private(set) var auditionStatus: String?
         private(set) var similarResult: SimilarSearchResult?
         private(set) var similarStatus: String?
+        /// Live re-picked onsets (detected layer; nil = lane hidden).
+        private(set) var pickedOnsets: OnsetRepickResult?
+        private(set) var onsetStatus: String?
+        /// Sensitivity currently applied (nil = the original detection).
+        private(set) var onsetDelta: Double?
         private(set) var status: String?
         private(set) var lanes: [FeatureLane] = []
         /// Project root for resolving the audition job's relative wav_path.
@@ -51,6 +56,7 @@
         /// Bumped per audition so a superseded task's preview-clear no-ops.
         @ObservationIgnored private var auditionGeneration = 0
         @ObservationIgnored private var similarTask: Task<Void, Never>?
+        @ObservationIgnored private var onsetTask: Task<Void, Never>?
         /// Ribbons per selection id, kept for undo/redo restore (§5.7).
         @ObservationIgnored private var magicSelections: [String: MagicSelection] = [:]
         @ObservationIgnored private var enabledLaneKinds: [String] = []
@@ -74,6 +80,8 @@
         @ObservationIgnored var onPreviewPlay: (() -> Void)?
         /// Magic selection committed/cleared — route into undoable state.
         @ObservationIgnored var onMagicSelectionChanged: ((String?) -> Void)?
+        /// Picked onsets were committed as annotations — reload the store.
+        @ObservationIgnored var onOnsetsCommitted: (() -> Void)?
 
         struct FeatureLane: Identifiable {
             var kind: String
@@ -109,6 +117,7 @@
             magicTask?.cancel()
             auditionTask?.cancel()
             similarTask?.cancel()
+            onsetTask?.cancel()
         }
 
         // MARK: - Viewport changes (gestures + layout)
@@ -585,6 +594,67 @@
                 // Superseded by a newer request.
             } catch {
                 magicStatus = "Magic select failed: \(error)"
+            }
+        }
+
+        // MARK: - Onsets (ux §5): detected layer + live re-threshold + commit
+
+        /// Show/re-threshold the detected-onset layer. `delta` nil = the
+        /// original detection. POST /onsets/repick re-picks the SAVED envelope
+        /// in milliseconds, so this is safe to drive from a live slider —
+        /// calls are debounced ~120 ms and superseded ones cancelled.
+        func repickOnsets(delta: Double?) {
+            onsetDelta = delta
+            onsetTask?.cancel()
+            onsetTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
+                await self?.runRepick(delta: delta)
+            }
+        }
+
+        func hideOnsets() {
+            onsetTask?.cancel()
+            pickedOnsets = nil
+            onsetStatus = nil
+            onsetDelta = nil
+        }
+
+        /// Materialize the current pick as point annotations — ONE undo step
+        /// (the backend batches the create; ⌘Z removes them all).
+        func commitPickedOnsets() {
+            guard let picked = pickedOnsets, !picked.onsets.t.isEmpty else { return }
+            onsetTask?.cancel()
+            onsetStatus = "Committing \(picked.n) onsets…"
+            onsetTask = Task { [weak self] in
+                await self?.runCommit(picked)
+            }
+        }
+
+        private func runRepick(delta: Double?) async {
+            do {
+                let result = try await client.onsetsRepick(audioId: file.id, delta: delta)
+                pickedOnsets = result
+                onsetStatus = "\(result.n) onsets detected"
+                requestRedraw?()
+            } catch is CancellationError {
+                // Superseded by a newer slider position.
+            } catch let error as APIError where error.statusCode == 404 {
+                onsetStatus = "Run the Onsets analysis first"
+            } catch {
+                onsetStatus = "Onset re-pick failed: \(error)"
+            }
+        }
+
+        private func runCommit(_ picked: OnsetRepickResult) async {
+            do {
+                let committed = try await client.onsetsCommit(
+                    audioId: file.id, times: picked.onsets.t,
+                    strengths: picked.onsets.strength)
+                onsetStatus = "Committed \(committed.created) onsets (one ⌘Z step)"
+                onOnsetsCommitted?()
+            } catch {
+                onsetStatus = "Commit failed: \(error)"
             }
         }
 

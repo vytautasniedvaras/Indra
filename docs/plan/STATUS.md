@@ -118,6 +118,15 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       annotations table w/ ⌘Z/⇧⌘Z (server-backed), five analyses w/ progress+cancel, JSON
       export panel, AVAudioEngine playback w/ seek + 0.25-4x time-pitch. CI builds the Linux
       stub as a structural check. **READY FOR FIRST MAC SMOKE TEST** (SMOKE_TESTS.md Phase 4).
+- [x] Multimodal magic select (user request 2026-07-07, headlessly verified): `POST
+      /select/magic` — flood-fill region grow on the dB pyramid with contextual
+      (local-median-adaptive) or absolute tolerance, point/box seeds, contiguous/global;
+      returns ribbons + selection_id. `POST /select/similar` — find regions that sound like
+      the seed (log-band profiles, baseline-removed, cosine distance; optional feature-curve
+      dimensions). `/audition` grew two modes: `selection_id` (feathered ribbon mask render)
+      and `segments` (equal-power crossfaded segment playback). 10 tests incl. chirp
+      tracking, contextual-vs-absolute under a whole-mix ramp, impostor rejection, roundtrip
+      via HTTP, crossfade click-freeness. Docs: api.md.
 - [ ] Metal tile renderer (§5.3): MTKView canvas, tile atlas, colormap/freq-scale LUT shaders,
       LOD cross-fade, overlays (playhead/selection/lanes) — consumes the IndraKitCore math
 - [ ] Gesture layer (scroll/magnify/drag on subclassed MTKView)

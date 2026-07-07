@@ -25,6 +25,8 @@ ANALYSIS_KINDS = frozenset(
         "onsets_superflux_pcen",
         "foote_novelty_multiscale",
         "audition",
+        "magic_select",
+        "select_similar",
     }
 )
 
@@ -81,16 +83,109 @@ def run_analysis(
         from indra.analyses.novelty import foote_novelty
 
         columns = foote_novelty(audio_path, sr, params, cancel_event, progress, duration_s)
+    elif kind == "magic_select":
+        from indra.analyses.select import magic_select
+
+        spec_path = paths.spec_zarr(audio_id)
+        if not spec_path.exists():
+            raise ValueError("no spectrogram pyramid for this file; re-import first")
+        selection = magic_select(
+            spec_path, params.get("seed") or {}, params.get("select") or {}, cancel_event
+        )
+        report(progress_queue, 1.0, "selection computed")
+        full_params = {**params, "_kind": kind, "project_root": str(paths.root)}
+        return {
+            "kind": kind,
+            "audio_id": audio_id,
+            "selection_id": cache_key(audio_id, kind, full_params),
+            **selection,
+        }
+    elif kind == "select_similar":
+        from indra.analyses.select import similar_segments
+        from indra.storage.features import read_feature
+
+        spec_path = paths.spec_zarr(audio_id)
+        if not spec_path.exists():
+            raise ValueError("no spectrogram pyramid for this file; re-import first")
+        curves: dict[str, Any] = {}
+        conn2 = open_db(paths.db)
+        try:
+            for feature_kind in params.get("use_features") or []:
+                row2 = conn2.execute(
+                    "SELECT blob_path FROM analysis_cache WHERE audio_id=? AND kind=?"
+                    " AND blob_path != '' ORDER BY created_at DESC LIMIT 1",
+                    (audio_id, feature_kind),
+                ).fetchone()
+                if row2 is None:
+                    continue
+                blob = paths.root / str(row2["blob_path"])
+                if blob.exists():
+                    columns, _meta = read_feature(blob)
+                    if "value" in columns:
+                        curves[feature_kind] = (
+                            np.asarray(columns["time_s"], dtype=np.float32),
+                            np.asarray(columns["value"], dtype=np.float32),
+                        )
+        finally:
+            conn2.close()
+        result = similar_segments(
+            spec_path,
+            params.get("seed") or {},
+            params.get("select") or {},
+            cancel_event,
+            curves or None,
+        )
+        report(progress_queue, 1.0, "similar segments found")
+        return {"kind": kind, "audio_id": audio_id, **result}
     elif kind == "audition":
-        from indra.analyses.audition import render_audition
+        import json as json_mod
+
+        from indra.analyses.audition import (
+            render_audition,
+            render_ribbons_audition,
+            render_segments_audition,
+        )
         from indra.storage.cache import cache_key as compute_key
 
         full_params = {**params, "_kind": kind, "project_root": str(paths.root)}
         key = compute_key(audio_id, kind, full_params)
         out_path = paths.blob_path(key, "wav")
-        meta = render_audition(
-            audio_path, sr, duration_s, params.get("mask") or {}, out_path, cancel_event
-        )
+        if params.get("selection_id"):
+            conn3 = open_db(paths.db)
+            try:
+                row3 = conn3.execute(
+                    "SELECT result_json FROM analysis_cache WHERE key=?",
+                    (str(params["selection_id"]),),
+                ).fetchone()
+            finally:
+                conn3.close()
+            if row3 is None:
+                raise ValueError(f"unknown selection_id: {params['selection_id']}")
+            ribbons = json_mod.loads(str(row3["result_json"])).get("ribbons") or []
+            meta = render_ribbons_audition(
+                audio_path,
+                sr,
+                duration_s,
+                ribbons,
+                out_path,
+                cancel_event,
+                fade_hz=float(params.get("fade_hz", 50.0)),
+                fade_ms=float(params.get("fade_ms", 15.0)),
+            )
+        elif params.get("segments"):
+            meta = render_segments_audition(
+                audio_path,
+                sr,
+                duration_s,
+                params["segments"],
+                out_path,
+                cancel_event,
+                crossfade_ms=float(params.get("crossfade_ms", 30.0)),
+            )
+        else:
+            meta = render_audition(
+                audio_path, sr, duration_s, params.get("mask") or {}, out_path, cancel_event
+            )
         report(progress_queue, 1.0, "audition rendered")
         return {
             "kind": kind,

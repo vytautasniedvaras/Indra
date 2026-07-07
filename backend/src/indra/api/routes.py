@@ -30,7 +30,9 @@ from indra.api.schemas import (
     ImportRequest,
     JobCreatedResponse,
     JobInfo,
+    MagicSelectRequest,
     ProjectResponse,
+    SelectSimilarRequest,
     SpecLod,
     SpecManifest,
     UndoResponse,
@@ -410,15 +412,68 @@ async def audition(request: Request, body: AuditionRequest) -> JobCreatedRespons
     row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
     if row is None:
         raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
-    mask = {k: v for k, v in body.mask.model_dump().items() if v is not None}
-    if "t0" not in mask or "t1" not in mask:
-        raise ApiError(400, "bad_request", "mask requires t0 and t1")
-    params = {
-        "_kind": "audition",
-        "project_root": str(_paths(request).root),
-        "mask": mask,
-    }
+    modes = [m for m in (body.mask, body.selection_id, body.segments) if m]
+    if len(modes) != 1:
+        raise ApiError(400, "bad_request", "provide exactly one of mask / selection_id / segments")
+    params: dict[str, Any] = {"_kind": "audition", "project_root": str(_paths(request).root)}
+    if body.mask is not None:
+        mask = {k: v for k, v in body.mask.model_dump().items() if v is not None}
+        if "t0" not in mask or "t1" not in mask:
+            raise ApiError(400, "bad_request", "mask requires t0 and t1")
+        params["mask"] = mask
+    elif body.selection_id is not None:
+        params["selection_id"] = body.selection_id
+        if body.fade_hz is not None:
+            params["fade_hz"] = body.fade_hz
+        if body.fade_ms is not None:
+            params["fade_ms"] = body.fade_ms
+    else:
+        params["segments"] = body.segments
+        if body.crossfade_ms is not None:
+            params["crossfade_ms"] = body.crossfade_ms
     handle = _registry(request).submit("audition", params, audio_id=body.audio_id)
+    return JobCreatedResponse(job_id=handle.id)
+
+
+@router.post("/select/magic")
+async def select_magic(request: Request, body: MagicSelectRequest) -> JobCreatedResponse:
+    row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
+    if row is None:
+        raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
+    seed = {k: v for k, v in body.seed.model_dump().items() if v is not None}
+    if not ({"t", "f"} <= seed.keys() or {"t0", "t1", "f0", "f1"} <= seed.keys()):
+        raise ApiError(400, "bad_request", "seed requires (t, f) or (t0, t1, f0, f1)")
+    params = {
+        "_kind": "magic_select",
+        "project_root": str(_paths(request).root),
+        "seed": seed,
+        "select": {
+            "tolerance_db": body.tolerance_db,
+            "contiguous": body.contiguous,
+            "adapt": body.adapt,
+            "max_extent_s": body.max_extent_s,
+        },
+    }
+    handle = _registry(request).submit("magic_select", params, audio_id=body.audio_id)
+    return JobCreatedResponse(job_id=handle.id)
+
+
+@router.post("/select/similar")
+async def select_similar(request: Request, body: SelectSimilarRequest) -> JobCreatedResponse:
+    row = _db(request).query_one("SELECT id FROM audio_files WHERE id=?", (body.audio_id,))
+    if row is None:
+        raise ApiError(404, "not_found", f"no such audio file: {body.audio_id}")
+    seed = {k: v for k, v in body.seed.model_dump().items() if v is not None}
+    if not {"t0", "t1"} <= seed.keys():
+        raise ApiError(400, "bad_request", "seed requires t0 and t1")
+    params = {
+        "_kind": "select_similar",
+        "project_root": str(_paths(request).root),
+        "seed": seed,
+        "select": {"threshold": body.threshold, "min_segment_s": body.min_segment_s},
+        "use_features": body.use_features,
+    }
+    handle = _registry(request).submit("select_similar", params, audio_id=body.audio_id)
     return JobCreatedResponse(job_id=handle.id)
 
 

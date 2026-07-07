@@ -5,9 +5,12 @@ name: macOS
 on:
   push:
     branches: [main]
-    paths: ["apple/**", ".github/workflows/macos.yml"]
+    paths: ["apple/**", ".github/workflows/macos.yml", "scripts/annotate-swift.sh"]
   pull_request:
-    paths: ["apple/**", ".github/workflows/macos.yml"]
+    paths: ["apple/**", ".github/workflows/macos.yml", "scripts/annotate-swift.sh"]
+
+permissions:
+  contents: write # publish failure logs to the ci-logs branch
 
 jobs:
   apple:
@@ -27,3 +30,13 @@ jobs:
       - name: Build IndraApp (full macOS app — SwiftUI/Metal/AVFoundation)
         working-directory: apple/IndraApp
         run: ../../scripts/annotate-swift.sh swift build
+      - name: Publish failure log to ci-logs branch
+        if: failure()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          [ -f /tmp/swift-ci.log ] || exit 0
+          dir=$(mktemp -d) && cd "$dir" && git init -q
+          tail -c 400000 /tmp/swift-ci.log > "macos-${GITHUB_SHA:0:7}.log"
+          git add . && git -c user.email=ci@indra -c user.name=ci commit -qm "macos log ${GITHUB_SHA:0:7}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:refs/heads/ci-logs-macos

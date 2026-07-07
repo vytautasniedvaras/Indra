@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# Run a build/test command, mirroring compiler/test errors as GitHub
-# annotations (::error workflow commands). Raw job logs are served from blob
-# storage that some dev environments can't reach; annotations come back
-# through the api.github.com check-runs endpoint, which they can.
+# Run a build/test command, capturing output for two feedback channels the
+# headless dev environment CAN reach (raw job logs live on blob storage it
+# cannot): GitHub ::error annotations, and /tmp/swift-ci.log which a later
+# workflow step publishes to the ci-logs branch on failure.
 set -o pipefail
-log="$(mktemp)"
-"$@" 2>&1 | tee "$log"
+log="${SWIFT_LOG:-/tmp/swift-ci.log}"
+{ echo "=== $* ==="; "$@" 2>&1; } | tee -a "$log"
 status=$?
 if [ $status -ne 0 ]; then
   # swiftc format: path:line:col: error: message
-  grep -E '^[^ :]+:[0-9]+:[0-9]+: (error|warning): ' "$log" | grep ': error: ' | sort -u | head -45 \
-    | sed -E 's|^([^:]+):([0-9]+):([0-9]+): error: (.*)|::error file=\1,line=\2::\4|'
-  # XCTest failure lines
-  grep -E ': error: .+ : ' "$log" | sort -u | head -20 \
-    | sed -E 's|^(.*)$|::error ::\1|' | head -4
+  grep -E '^[^ ]+:[0-9]+(:[0-9]+)?: error: ' "$log" | sort -u | head -45 \
+    | sed -E 's|^([^:]+):([0-9]+)(:[0-9]+)?: error: (.*)|::error file=\1,line=\2::\4|'
 fi
 exit $status

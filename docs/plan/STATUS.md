@@ -158,8 +158,13 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       **Mac smoke test queued** (SMOKE_TESTS.md item 7).
 - [x] Gesture layer (scroll pan, anchor-fixed magnify zoom, ⌥-magnify freq zoom, drag
       select, click seek, ⌥-click magic select) — in SpectroCanvasView, part of ADR 0013
-- [ ] Audition wiring in the app (selection → POST /audition → play rendered WAV)
-- [ ] Quick-preview EQ fallback while audition renders (§5.5)
+- [x] Audition wiring in the app: Audition button (magic selection preferred, else drag
+      box) → POST /audition → job SSE → rendered WAV plays on a dedicated scratch node;
+      transport shows state + Stop (SMOKE_TESTS item 7 covers verification)
+- [x] Quick-preview EQ fallback while audition renders (§5.5): resonant HP/LP pair on the
+      main chain engages instantly from the selection band, clears when the render lands
+- [ ] Similar-search + constellation view in the app (backend + IndraKit parsing done;
+      SwiftUI view remains)
 
 ## Deviations from BUILD_SPEC.md
 

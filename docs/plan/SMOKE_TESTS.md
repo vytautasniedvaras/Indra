@@ -52,6 +52,13 @@ message is fine). Items are grouped by phase and removed once confirmed.
      undoable (lens state).
    - **Memory**: on a 1-hour file, sustained pan/zoom keeps Metal texture memory roughly
      flat (~130–200 MB, Xcode memory gauge) — the atlas LRU is working.
+   - **Audition** (§5.5): drag a box (or magic-select) → “Audition”. Immediately the main
+     playback (if playing) narrows to the band — that's the EQ quick preview; transport
+     shows “EQ preview engaged (render pending)”. Within a couple of seconds the exact
+     render takes over: transport shows “Audition render playing”, and only the selected
+     time-frequency content is audible with soft feathered edges. Stop halts it; repeating
+     the same audition starts instantly (server cache). ⌥-select a harmonic ribbon and
+     audition it — you should hear that partial alone, tracking its movement.
 
 ## Phase 3 (optional)
 

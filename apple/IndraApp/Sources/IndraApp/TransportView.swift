@@ -52,6 +52,23 @@
                             .monospacedDigit()
                             .frame(width: 52, alignment: .leading)
                     }
+                    if playback.isPlayingScratch || playback.previewBandActive {
+                        HStack(spacing: 8) {
+                            if playback.isPlayingScratch {
+                                Text("Audition render playing")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                Button("Stop") { playback.stopScratch() }
+                                    .buttonStyle(.borderless)
+                                    .font(.caption)
+                            }
+                            if playback.previewBandActive {
+                                Text("EQ preview engaged (render pending)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     if let error = playback.lastError {
                         Text(error)
                             .font(.caption)

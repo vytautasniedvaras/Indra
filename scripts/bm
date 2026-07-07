@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Knowledge-graph CLI wrapper (see docs/knowledge/README.md, ADR 0014).
+# Self-bootstrapping: installs basic-memory and registers docs/knowledge as the
+# "indra" project on first use, then execs the real CLI. Two environment quirks
+# it handles for you:
+#   - NO_PROXY: basic-memory talks to its own localhost API; the dev-container
+#     agent proxy must not intercept that.
+#   - semantic search off: the embedding-model download is blocked by network
+#     policy; FTS5 full-text search needs nothing and is plenty at this scale.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+KNOWLEDGE_DIR="$REPO_ROOT/docs/knowledge"
+
+if ! command -v basic-memory >/dev/null 2>&1; then
+  echo "bm: installing basic-memory..." >&2
+  uv tool install --quiet basic-memory
+fi
+
+CONFIG="$HOME/.basic-memory/config.json"
+if [ ! -f "$CONFIG" ] || ! grep -q '"indra"' "$CONFIG"; then
+  basic-memory project add indra "$KNOWLEDGE_DIR" >/dev/null
+  basic-memory project default indra >/dev/null
+fi
+python3 - "$CONFIG" <<'EOF'
+import json, sys
+path = sys.argv[1]
+cfg = json.load(open(path))
+if cfg.get("semantic_search_enabled") or cfg.get("auto_update"):
+    cfg["semantic_search_enabled"] = False
+    cfg["auto_update"] = False
+    json.dump(cfg, open(path, "w"), indent=2)
+EOF
+
+export NO_PROXY="*" no_proxy="*"
+
+# `scripts/bm sync`: index files edited outside the tool (plain-file edits only
+# land in the search DB while the server runs; there is no one-shot CLI sync in
+# 0.22, so hold a server open briefly). Check with `scripts/bm status`.
+if [ "${1:-}" = "sync" ]; then
+  (sleep 45 | basic-memory mcp >/dev/null 2>&1) || true
+  exec basic-memory status
+fi
+
+exec basic-memory "$@"

@@ -134,10 +134,10 @@
             let side = min(size.width, size.height)
             var best: (index: Int, distance: Double)?
             for dot in dots {
-                let dx = point.x - dot.x * size.width
-                let dy = point.y - dot.y * size.height
+                let dx = Double(point.x) - dot.x * Double(size.width)
+                let dy = Double(point.y) - dot.y * Double(size.height)
                 let distance = (dx * dx + dy * dy).squareRoot()
-                let hitRadius = max(dot.radius * side, 6)
+                let hitRadius = max(dot.radius * Double(side), 6)
                 if distance <= hitRadius, distance < (best?.distance ?? .infinity) {
                     best = (dot.segmentIndex, distance)
                 }

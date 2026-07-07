@@ -468,13 +468,16 @@ async def select_similar(request: Request, body: SelectSimilarRequest) -> JobCre
     seed = {k: v for k, v in body.seed.model_dump().items() if v is not None}
     if not {"t0", "t1"} <= seed.keys():
         raise ApiError(400, "bad_request", "seed requires t0 and t1")
-    params = {
+    params: dict[str, Any] = {
         "_kind": "select_similar",
         "project_root": str(_paths(request).root),
         "seed": seed,
         "select": {"threshold": body.threshold, "min_segment_s": body.min_segment_s},
         "use_features": body.use_features,
     }
+    if body.targets is not None:
+        params["targets"] = body.targets
+        params["embed"] = body.embed
     handle = _registry(request).submit("select_similar", params, audio_id=body.audio_id)
     return JobCreatedResponse(job_id=handle.id)
 

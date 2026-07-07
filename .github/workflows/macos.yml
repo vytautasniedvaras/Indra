@@ -1,0 +1,29 @@
+name: macOS
+# Real-platform verification of the Swift code (SwiftUI, MetalKit, AVFoundation) —
+# the linux `indrakit` job only covers IndraKitCore/Net and the Linux app stub.
+# Runs only when apple/ changes: macOS runners bill at 10x minutes.
+on:
+  push:
+    branches: [main]
+    paths: ["apple/**", ".github/workflows/macos.yml"]
+  pull_request:
+    paths: ["apple/**", ".github/workflows/macos.yml"]
+
+jobs:
+  apple:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache .build
+        uses: actions/cache@v4
+        with:
+          path: |
+            apple/IndraKit/.build
+            apple/IndraApp/.build
+          key: macos-swiftpm-${{ hashFiles('apple/**/Package.swift') }}
+      - name: Test IndraKit
+        working-directory: apple/IndraKit
+        run: swift test --parallel
+      - name: Build IndraApp (full macOS app — SwiftUI/Metal/AVFoundation)
+        working-directory: apple/IndraApp
+        run: swift build

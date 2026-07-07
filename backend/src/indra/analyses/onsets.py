@@ -40,28 +40,44 @@ def pick_peaks(
     envelope: NDArray[np.float32],
     env_times: NDArray[np.float32],
     params: dict[str, Any],
+    region: tuple[float | None, float | None] | None = None,
 ) -> dict[str, NDArray[np.float32]]:
     """Peak-pick an onset-strength envelope; the cheap, re-runnable half of detection.
 
-    `delta` is the sensitivity knob (envelope is normalized to [0,1], so it is
-    comparable across files); the *_s windows shape the local-max / local-mean
-    tests. Batch re-thresholding = call this again on the saved envelope with
-    different params — no PCEN/SuperFlux recomputation.
+    `delta` is the sensitivity knob; the *_s windows shape the local-max /
+    local-mean tests. Batch re-thresholding = call this again on the saved
+    envelope with different params — no PCEN/SuperFlux recomputation.
+
+    The envelope is [0,1]-normalized over the WHOLE input (librosa-identical
+    math) before any `region` restriction, so a given `delta` means the same
+    thing file-wide — re-picking a quiet region does not silently rescale it.
     """
     import librosa.onset
+    import librosa.util
 
     if len(envelope) < 2:
         empty = np.zeros(0, dtype=np.float32)
         return {"onset_t": empty, "onset_strength": empty}
     dt = float(env_times[1] - env_times[0])
     sr_eff = 1.0 / dt  # envelope frame rate; frames == samples at hop 1
+    normalized = envelope - np.min(envelope)
+    normalized = normalized / (np.max(normalized) + librosa.util.tiny(normalized))
+    if region is not None:
+        t0, t1 = region
+        lo = int(np.searchsorted(env_times, t0)) if t0 is not None else 0
+        hi = int(np.searchsorted(env_times, t1)) if t1 is not None else len(env_times)
+        normalized, env_times, envelope = normalized[lo:hi], env_times[lo:hi], envelope[lo:hi]
+        if len(normalized) < 2:
+            empty = np.zeros(0, dtype=np.float32)
+            return {"onset_t": empty, "onset_strength": empty}
     merged = {**PICK_DEFAULTS, **{k: float(v) for k, v in params.items() if k in PICK_DEFAULTS}}
     peak_indices = librosa.onset.onset_detect(  # type: ignore[attr-defined]
-        onset_envelope=envelope,
+        onset_envelope=normalized,
         sr=sr_eff,
         hop_length=1,
         units="frames",
         backtrack=False,
+        normalize=False,
         delta=merged["delta"],
         wait=max(1, int(merged["wait_s"] * sr_eff)),
         pre_max=max(1, int(merged["pre_max_s"] * sr_eff)),

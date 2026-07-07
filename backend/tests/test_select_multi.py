@@ -167,3 +167,28 @@ def test_select_similar_endpoint_multi(client: TestClient, two_files: tuple[Path
     assert set(result["scanned"]) == set(ids)
     assert _hits(result["segments"], ids[1], 8.0), "cross-file match missing via HTTP"
     assert len(result["embedding"]["xy"]) == len(result["segments"])
+
+    # use_features is a per-file quantity: combining it with targets is a 400
+    rejected = client.post(
+        "/select/similar",
+        json={
+            "audio_id": ids[0],
+            "seed": {"t0": 3.0, "t1": 5.0},
+            "targets": "all",
+            "use_features": ["roughness_mpt"],
+        },
+    )
+    assert rejected.status_code == 400
+
+    # a selection made on file A must not audition against file B
+    select = client.post(
+        "/select/magic",
+        json={"audio_id": ids[0], "seed": {"t": 4.0, "f": 2000.0}, "tolerance_db": 12.0},
+    )
+    info = wait_for_job(client, select.json()["job_id"], timeout_s=120.0)
+    assert info["state"] == "done", info
+    selection_id = info["result_ref"]["selection_id"]
+    cross = client.post("/audition", json={"audio_id": ids[1], "selection_id": selection_id})
+    info = wait_for_job(client, cross.json()["job_id"], timeout_s=120.0)
+    assert info["state"] == "failed"
+    assert "selection_id" in info["error"]["message"]

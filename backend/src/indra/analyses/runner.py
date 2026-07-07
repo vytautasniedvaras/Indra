@@ -126,6 +126,7 @@ def run_analysis(
                 [(tid, paths.spec_zarr(tid)) for tid in target_ids],
                 select_params,
                 cancel_event,
+                progress,
             )
             report(progress_queue, 1.0, "similar segments found")
             return {"kind": kind, "audio_id": audio_id, **result}
@@ -175,14 +176,16 @@ def run_analysis(
         if params.get("selection_id"):
             conn3 = open_db(paths.db)
             try:
+                # audio_id guard: a selection from another file must not render
+                # against this one's audio (silent wrong-sounding output).
                 row3 = conn3.execute(
-                    "SELECT result_json FROM analysis_cache WHERE key=?",
-                    (str(params["selection_id"]),),
+                    "SELECT result_json FROM analysis_cache WHERE key=? AND audio_id=?",
+                    (str(params["selection_id"]), audio_id),
                 ).fetchone()
             finally:
                 conn3.close()
             if row3 is None:
-                raise ValueError(f"unknown selection_id: {params['selection_id']}")
+                raise ValueError(f"unknown selection_id for this file: {params['selection_id']}")
             ribbons = json_mod.loads(str(row3["result_json"])).get("ribbons") or []
             meta = render_ribbons_audition(
                 audio_path,

@@ -19,6 +19,7 @@ as spectrogram overlays, and directly convertible to audition masks.
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from itertools import pairwise
 from pathlib import Path
 from typing import Any
@@ -373,6 +374,7 @@ def similar_segments_multi(
     targets: list[tuple[str, Path]],
     params: dict[str, Any],
     cancel_event: CancelEvent,
+    progress_cb: Callable[[float], None] | None = None,
 ) -> dict[str, Any]:
     """Folder-wide similar search: one seed, segments from MANY files.
 
@@ -388,7 +390,7 @@ def similar_segments_multi(
     exemplars, _unit, _spc, _lod, _cols = seed_exemplars(seed_spec_path, seed, cancel_event)
     segments: list[dict[str, Any]] = []
     scanned: list[str] = []
-    for audio_id, spec_path in targets:
+    for index, (audio_id, spec_path) in enumerate(targets):
         check_cancel(cancel_event)
         if not spec_path.exists():
             continue
@@ -398,6 +400,8 @@ def similar_segments_multi(
             segment["audio_id"] = audio_id
             segments.append(segment)
         scanned.append(audio_id)
+        if progress_cb is not None:
+            progress_cb((index + 1) / len(targets))
 
     segments.sort(key=lambda s: s["distance"])
     result: dict[str, Any] = {

@@ -105,6 +105,8 @@ duration_s, … }`. Params-hash cached (identical request → instant `done` wit
 ### `POST /select/magic` (Phase 4, §5)
 `{ "audio_id", "seed": { t?, f? | t0?, t1?, f0?, f1? }, "tolerance_db"?: 8, "contiguous"?:
 true, "adapt"?: "local_median" | "none", "max_extent_s"?: 120 }` → `{ "job_id" }`.
+`max_extent_s` is the half-window: the selection can grow up to that many seconds on
+EITHER side of the seed (default ±120 s; hard ceiling ±600 s).
 Magic-wand region grow on the precomputed dB pyramid, seeded by a point (grown from a small
 neighborhood) or a box. `adapt: "local_median"` matches level *relative to each time slice's
 median* (contextual: selection survives whole-mix level ramps); `"none"` matches absolute dB.
@@ -124,11 +126,14 @@ smeared into one average). Distance is 0 for a perfect match; the default thresh
 catches steady and evolving textures.
 
 - Single-file (no `targets`): result `{ segments: [{ t0, t1, distance },…], threshold,
-  features_used }`; `use_features` mixes already-computed feature curves into the distance.
+  features_used, lod, seconds_per_column }`; `use_features` mixes already-computed feature
+  curves into the distance.
 - **Folder-wide** (`targets: "all"` or a list): scans every listed import with the same
   seed — fixed-Hz bands + per-file baseline removal make profiles comparable across
   different sample rates, levels, and noise floors. Result `{ segments: [{ audio_id, t0,
   t1, distance },…] (sorted best-first), scanned: [audio_id,…], threshold }`.
+  `use_features` is single-file only — sending it together with `targets` is a 400.
+- All job `result_ref`s additionally carry `kind` and `audio_id` (job envelope fields).
 - `embed: true` (with `targets`) attaches `embedding: { xy: [[x,y],…], cluster: [int,…],
   n_clusters }` — 2-D PCA coordinates plus average-linkage cosine clusters (cut at 0.4, the
   search-threshold scale) per segment, in segment order: everything a cluster-map view
@@ -142,7 +147,10 @@ onset-strength envelope (latest `onsets_superflux_pcen` or the one named by `key
 expensive PCEN/SuperFlux stage is never recomputed, so this can drive a live sensitivity
 slider. With no overrides it reproduces the original detection exactly. `delta` is on the
 [0,1]-normalized envelope (comparable across files); `region` re-picks only inside a window
-(local redo). Response `{ audio_id, source_key, params, n, onsets: { t: […], strength: […] } }`.
+(local redo). Normalization is always computed over the WHOLE file before the region is
+applied, so a given `delta` means the same thing everywhere — re-picking a quiet region
+does not rescale it. Response `{ audio_id, source_key, params, n, onsets: { t: […],
+strength: […] } }`.
 
 ### `POST /onsets/commit` (synchronous)
 `{ "audio_id", "times": […], "strengths"?: […], "label"?: "onset" }` → creates one point

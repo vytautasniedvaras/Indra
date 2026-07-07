@@ -473,11 +473,17 @@ async def select_similar(request: Request, body: SelectSimilarRequest) -> JobCre
         "project_root": str(_paths(request).root),
         "seed": seed,
         "select": {"threshold": body.threshold, "min_segment_s": body.min_segment_s},
-        "use_features": body.use_features,
     }
     if body.targets is not None:
+        # Folder-wide search: feature curves are per-file quantities and don't
+        # apply — reject rather than silently ignore (and keep cache keys free
+        # of dead fields).
+        if body.use_features:
+            raise ApiError(400, "bad_request", "use_features is single-file only; omit targets")
         params["targets"] = body.targets
         params["embed"] = body.embed
+    else:
+        params["use_features"] = body.use_features
     handle = _registry(request).submit("select_similar", params, audio_id=body.audio_id)
     return JobCreatedResponse(job_id=handle.id)
 
@@ -495,7 +501,9 @@ async def onsets_repick(request: Request, body: OnsetRepickRequest) -> dict[str,
     db = _db(request)
     if body.key:
         row = db.query_one(
-            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?", (body.key, body.audio_id)
+            "SELECT * FROM analysis_cache WHERE key=? AND audio_id=?"
+            " AND kind='onsets_superflux_pcen'",
+            (body.key, body.audio_id),
         )
     else:
         row = db.query_one(
@@ -511,17 +519,14 @@ async def onsets_repick(request: Request, body: OnsetRepickRequest) -> dict[str,
     columns, _metadata = read_feature(blob)
     times = np.asarray(columns["time_s"], dtype=np.float32)
     envelope = np.asarray(columns["value"], dtype=np.float32)
-    if body.region is not None:
-        lo = int(np.searchsorted(times, body.region.t0)) if body.region.t0 is not None else 0
-        hi = int(np.searchsorted(times, body.region.t1)) if body.region.t1 is not None else None
-        times, envelope = times[lo:hi], envelope[lo:hi]
+    region = (body.region.t0, body.region.t1) if body.region is not None else None
     pick_params = {
         k: v
         for k, v in body.model_dump().items()
         if k in ("delta", "wait_s", "pre_max_s", "post_max_s", "pre_avg_s", "post_avg_s")
         and v is not None
     }
-    picked = pick_peaks(envelope, times, pick_params)
+    picked = pick_peaks(envelope, times, pick_params, region=region)
     return {
         "audio_id": body.audio_id,
         "source_key": str(row["key"]),

@@ -169,7 +169,7 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       per-file match pills; clicking either auditions that segment cross-file via the
       segments render. SMOKE_TESTS item 7 covers verification.
 
-## Phase 4 review pass (2026-07-07, two-axis: standards + spec)
+## Phase 4 review pass (2026-07-07, two-axis: standards + spec) — applied, CI-green
 
 Applied: EQ-preview generation guard (superseded audition no longer kills its successor's
 band); §5.5 audible preview (audition seeks + starts the transport); §5.7 magic selection

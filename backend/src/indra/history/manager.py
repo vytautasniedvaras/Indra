@@ -58,6 +58,38 @@ class HistoryManager:
             )
             return dict(row)
 
+    def create_annotations_batch(
+        self, fields_list: list[dict[str, Any]], action_name: str
+    ) -> list[dict[str, Any]]:
+        """Insert many annotations as ONE undoable action (e.g. commit picked onsets)."""
+        if not fields_list:
+            raise HistoryError("bad_request", "empty batch")
+        with self._db.tx() as conn:
+            rows: list[dict[str, Any]] = []
+            forward: list[dict[str, Any]] = []
+            inverse: list[dict[str, Any]] = []
+            for fields in fields_list:
+                cursor = conn.execute(
+                    "INSERT INTO annotations (audio_id, t0, t1, f0, f1, label, note)"
+                    " VALUES (?,?,?,?,?,?,?)",
+                    tuple(fields.get(f) for f in _ANNOTATION_FIELDS),
+                )
+                annotation_id = int(cursor.lastrowid or 0)
+                row = conn.execute(
+                    "SELECT * FROM annotations WHERE id=?", (annotation_id,)
+                ).fetchone()
+                forward.append(
+                    {
+                        "op": "add",
+                        "path": f"/annotations/{annotation_id}",
+                        "value": _annotation_value(row),
+                    }
+                )
+                inverse.append({"op": "remove", "path": f"/annotations/{annotation_id}"})
+                rows.append(dict(row))
+            self._append(conn, action_name, forward=forward, inverse=inverse)
+            return rows
+
     def update_annotation(self, annotation_id: int, updates: dict[str, Any]) -> dict[str, Any]:
         with self._db.tx() as conn:
             old = conn.execute("SELECT * FROM annotations WHERE id=?", (annotation_id,)).fetchone()

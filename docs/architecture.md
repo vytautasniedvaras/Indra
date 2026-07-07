@@ -30,8 +30,8 @@ Codable fixture test).
    `ProcessPoolExecutor`).
 4. **Cache keys** (§4.6): `blake3(audio_hash | kind | canonical_params_json | engine_version)`.
    The registry computes the key from the params dict AS SUBMITTED — so the runner must
-   reconstruct the identical dict (`{**params, "_kind":…, "project_root":…}`) when it derives
-   blob filenames. If you change what routes put into `params`, keys change (= cache
+   reconstruct the identical dict (`AnalysisContext.full_params()` in `runner.py`) when it
+   derives blob filenames. If you change what routes put into `params`, keys change (= cache
    invalidation, acceptable) but runner/registry must stay consistent (= correctness).
    **Bump `ENGINE_VERSION` in `indra/__init__.py` whenever an analysis changes semantics.**
 5. **STFT framing**: `center=False` everywhere; streamed framing is proven bit-identical to
@@ -117,9 +117,11 @@ non-permissive licenses; exceptions live in that file + `docs/licenses.md`.
 ## Where the next work goes
 
 - Metal renderer internals: pure math in IndraKitCore (tested), Metal/AppKit in IndraApp.
-- New analysis kind: `analyses/<kind>.py` (+ direct in-process tests) → register in
-  `runner.py` ANALYSIS_KINDS + dispatch → it is automatically a cacheable job kind and
-  appears in `/analyze`; add golden tests and api.md rows.
+- New analysis kind: `analyses/<kind>.py` (+ direct in-process tests) → write a handler
+  taking `AnalysisContext`, register it in `runner.py` `_HANDLERS` (ANALYSIS_KINDS derives
+  from the table) → it is automatically a cacheable job kind and appears in `/analyze`;
+  add golden tests and api.md rows. Cached features load via
+  `storage/features.py::load_latest_feature` — don't hand-write the SQL again.
 - New wire endpoint: routes.py + schemas.py + docs/api.md + IndraKit Models/APIClient +
   Codable fixture test + MockTransport test — all six or it isn't done.
 - Phase 5 (cloud) is opt-in and unstarted; sqlite-vec joins pyproject then.

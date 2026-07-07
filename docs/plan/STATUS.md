@@ -153,9 +153,11 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
       lives in IndraKitCore with ~30 Linux-CI tests (SpecAtlas, SpecRenderPlan,
       FrequencyLUT, MagicSelection, FeatureTable); APIClient grew magicSelect +
       featureTable. Deliberate deviation from §5.3 recorded in ADR 0013: full-height tile
-      slabs, freq remap in-shader (not 512×256 sub-tiles). macOS CI compiles the real app.
+      slabs, freq remap in-shader (not 512×256 sub-tiles). **CI-verified 2026-07-07**:
+      macOS job compiles the real app and all 167 IndraKit tests pass on macOS + Linux.
       **Mac smoke test queued** (SMOKE_TESTS.md item 7).
-- [ ] Gesture layer (scroll/magnify/drag on subclassed MTKView)
+- [x] Gesture layer (scroll pan, anchor-fixed magnify zoom, ⌥-magnify freq zoom, drag
+      select, click seek, ⌥-click magic select) — in SpectroCanvasView, part of ADR 0013
 - [ ] Audition wiring in the app (selection → POST /audition → play rendered WAV)
 - [ ] Quick-preview EQ fallback while audition renders (§5.5)
 

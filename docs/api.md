@@ -88,11 +88,40 @@ forward action invalidates the redo branch. `GET /history` → last 100
 `{ id, ts, scope, action_name }` ("Undo Add annotation" menu naming).
 
 ### `POST /audition` (Phase 4, §5.5, ADR 0008)
-`{ "audio_id": str, "mask": { t0, t1, f0?, f1?, fade_hz?, fade_ms? } }` → `{ "job_id" }`.
-Renders the time-frequency box in isolation (STFT → raised-cosine band mask → ISTFT, time-edge
-fades) to a scratch WAV; job `result_ref` = `{ audition_id, wav_path (relative to project
-root), t0, t1, f0, f1, sr, channels, duration_s }`. Mask-hash cached (identical mask →
-instant `done` with the same `audition_id`). Selections capped at 600 s.
+Exactly one of three modes (400 otherwise) → `{ "job_id" }`:
+
+- `{ "audio_id", "mask": { t0, t1, f0?, f1?, fade_hz?, fade_ms? } }` — rectangle: STFT →
+  raised-cosine band mask → ISTFT, time-edge fades.
+- `{ "audio_id", "selection_id", "fade_hz"?, "fade_ms"? }` — magic selection: rebuilds the
+  ribbon mask on the audition STFT grid, gaussian-feathered in both axes (feather width from
+  `fade_hz` / `fade_ms`), renders the selection in isolation.
+- `{ "audio_id", "segments": [[t0,t1],…], "crossfade_ms"? }` — segmented playback: extracts
+  joined with equal-power raised-cosine crossfades at every joint (no clicks).
+
+Job `result_ref` = `{ audition_id, wav_path (relative to project root), sr, channels,
+duration_s, … }`. Params-hash cached (identical request → instant `done` with the same
+`audition_id`). Renders capped at 600 s total.
+
+### `POST /select/magic` (Phase 4, §5)
+`{ "audio_id", "seed": { t?, f? | t0?, t1?, f0?, f1? }, "tolerance_db"?: 8, "contiguous"?:
+true, "adapt"?: "local_median" | "none", "max_extent_s"?: 120 }` → `{ "job_id" }`.
+Magic-wand region grow on the precomputed dB pyramid, seeded by a point (grown from a small
+neighborhood) or a box. `adapt: "local_median"` matches level *relative to each time slice's
+median* (contextual: selection survives whole-mix level ramps); `"none"` matches absolute dB.
+`contiguous: false` selects all matching cells in the window. Result `result_ref` =
+`{ selection_id, ribbons: [{ t0, t1, intervals: [[f_lo, f_hi],…] },…], lod,
+seconds_per_column, hz_per_bin, cells, seed_level_db, bounds }`. The `selection_id` is the
+cache key — pass it straight to `POST /audition` to hear the selection, feathered.
+
+### `POST /select/similar` (Phase 4, §5)
+`{ "audio_id", "seed": { t0, t1 }, "threshold"?: 0.4, "min_segment_s"?: 0.5,
+"use_features"?: ["roughness_mpt", …] }` → `{ "job_id" }`. Finds time regions that sound
+like the seed: 24 log-band energy profiles (per-band median-over-time baseline removed,
+~0.25 s smoothed, unit-normalized), cosine distance to the seed mean; `use_features` mixes
+in already-computed feature curves as extra profile dimensions. Result `result_ref` =
+`{ segments: [{ t0, t1, distance },…], seed: { t0, t1 }, threshold }`. Distance is 0 for a
+perfect match; steady textures self-match ≈ 0.1, evolving ones ≈ 0.3 — the default 0.4
+catches both.
 
 ### `POST /export` (Phase 3, §6.6)
 `{ audio_id, kinds: [feature kinds], format: "json" | "csv", region? }` → attachment

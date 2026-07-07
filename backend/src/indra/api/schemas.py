@@ -166,8 +166,43 @@ class MaskSpec(BaseModel):
 
 
 class AuditionRequest(BaseModel):
+    """Exactly one of mask / selection_id / segments."""
+
     audio_id: str
-    mask: MaskSpec
+    mask: MaskSpec | None = None
+    selection_id: str | None = None
+    segments: list[list[float]] | None = None
+    crossfade_ms: float | None = None
+    fade_hz: float | None = None
+    fade_ms: float | None = None
+
+
+class SeedSpec(BaseModel):
+    """Point (t, f) or box (t0, t1, f0, f1)."""
+
+    t: float | None = None
+    f: float | None = None
+    t0: float | None = None
+    t1: float | None = None
+    f0: float | None = None
+    f1: float | None = None
+
+
+class MagicSelectRequest(BaseModel):
+    audio_id: str
+    seed: SeedSpec
+    tolerance_db: float = 8.0
+    contiguous: bool = True
+    adapt: str = "local_median"
+    max_extent_s: float = 120.0
+
+
+class SelectSimilarRequest(BaseModel):
+    audio_id: str
+    seed: SeedSpec
+    threshold: float = 0.4
+    min_segment_s: float = 0.5
+    use_features: list[str] = Field(default_factory=list)
 
 
 class ExportRequest(BaseModel):

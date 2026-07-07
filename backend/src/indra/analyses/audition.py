@@ -4,8 +4,11 @@
 spectral masking beats realtime EQ band-passing for arbitrary boxes. Rendered
 WAVs are content-addressed by mask hash (cached; LRU-evictable blobs).
 
-MVP mask: a rectangle {t0, t1, f0, f1} with raised-cosine edge fades in both
-frequency (fade_hz) and time (fade_ms). Lasso / harmonic-follower masks later.
+Mask forms:
+- rectangle {t0, t1, f0, f1} with raised-cosine edge fades (fade_hz, fade_ms);
+- ribbons (from magic select): per-time-slice frequency intervals, feathered;
+- segments [[t0,t1], ...]: unmasked extracts joined with equal-power crossfades
+  (segmented playback with feathering at every joint).
 """
 
 from __future__ import annotations
@@ -93,4 +96,134 @@ def render_audition(
         "sr": sr,
         "channels": n_channels,
         "duration_s": (t1 - t0),
+    }
+
+
+def _fade_edges(rendered: NDArray[np.float32], sr: int, fade_ms: float) -> None:
+    n_frames = rendered.shape[0]
+    fade_n = min(n_frames // 2, max(1, round(fade_ms / 1000.0 * sr)))
+    ramp = np.sin(np.linspace(0.0, np.pi / 2, fade_n, dtype=np.float32)) ** 2
+    rendered[:fade_n] *= ramp[:, np.newaxis]
+    rendered[n_frames - fade_n :] *= ramp[::-1][:, np.newaxis]
+
+
+def render_ribbons_audition(
+    audio_path: Path,
+    sr: int,
+    duration_s: float,
+    ribbons: list[dict[str, Any]],
+    out_path: Path,
+    cancel_event: CancelEvent,
+    fade_hz: float = 50.0,
+    fade_ms: float = 15.0,
+) -> dict[str, Any]:
+    """Render a magic-selection (per-time-slice frequency intervals) in isolation.
+
+    Builds a per-STFT-frame soft gain mask from the ribbons, feathered in both
+    axes, and applies it in the STFT domain.
+    """
+    import librosa
+    import scipy.ndimage
+
+    if not ribbons:
+        raise ValueError("selection has no ribbons")
+    t0 = max(0.0, float(ribbons[0]["t0"]))
+    t1 = min(duration_s, float(ribbons[-1]["t1"]))
+    if t1 - t0 > MAX_AUDITION_S:
+        raise ValueError(
+            f"selection spans {t1 - t0:.0f}s; audition maximum is {MAX_AUDITION_S:.0f}s"
+        )
+    region = read_range(audio_path, round(t0 * sr), round(t1 * sr))
+    n_frames, n_channels = region.shape
+    if n_frames < N_FFT:
+        raise ValueError("selection too short to audition (needs >= one STFT window)")
+
+    n_bins = N_FFT // 2 + 1
+    n_cols = 1 + (n_frames - N_FFT) // HOP + N_FFT // HOP  # stft(center=True) column count ~
+    # Build the binary mask on the audition STFT grid.
+    hz_per_bin = sr / N_FFT
+    mask = np.zeros((n_bins, n_cols), dtype=np.float32)
+    for ribbon in ribbons:
+        c0 = int((float(ribbon["t0"]) - t0) * sr / HOP)
+        c1 = max(c0 + 1, int((float(ribbon["t1"]) - t0) * sr / HOP))
+        for f_lo, f_hi in ribbon["intervals"]:
+            b0 = int(float(f_lo) / hz_per_bin)
+            b1 = max(b0 + 1, int(float(f_hi) / hz_per_bin))
+            mask[b0 : min(b1, n_bins), max(0, c0) : min(c1, n_cols)] = 1.0
+    check_cancel(cancel_event)
+    # Feather: gaussian blur, sigma from fade_hz / fade_ms.
+    sigma_bins = max(0.5, fade_hz / hz_per_bin / 2)
+    sigma_cols = max(0.5, (fade_ms / 1000.0) * sr / HOP / 2)
+    mask = scipy.ndimage.gaussian_filter(mask, sigma=(sigma_bins, sigma_cols))
+    mask = np.clip(mask, 0.0, 1.0)
+
+    rendered = np.empty_like(region)
+    for channel in range(n_channels):
+        check_cancel(cancel_event)
+        spectrum = librosa.stft(region[:, channel], n_fft=N_FFT, hop_length=HOP)
+        cols = min(spectrum.shape[1], mask.shape[1])
+        spectrum[:, :cols] *= mask[:, :cols]
+        spectrum[:, cols:] = 0.0
+        rendered[:, channel] = librosa.istft(spectrum, n_fft=N_FFT, hop_length=HOP, length=n_frames)
+    _fade_edges(rendered, sr, fade_ms)
+    check_cancel(cancel_event)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(out_path, rendered, sr, subtype="FLOAT")
+    return {"t0": t0, "t1": t1, "sr": sr, "channels": n_channels, "duration_s": t1 - t0}
+
+
+def render_segments_audition(
+    audio_path: Path,
+    sr: int,
+    duration_s: float,
+    segments: list[list[float]],
+    out_path: Path,
+    cancel_event: CancelEvent,
+    crossfade_ms: float = 30.0,
+) -> dict[str, Any]:
+    """Concatenate time segments with equal-power crossfades (feathered joints)."""
+    if not segments:
+        raise ValueError("no segments to play")
+    clean = []
+    for t0, t1 in segments:
+        t0 = max(0.0, float(t0))
+        t1 = min(duration_s, float(t1))
+        if t1 > t0:
+            clean.append((t0, t1))
+    total = sum(t1 - t0 for t0, t1 in clean)
+    if total <= 0:
+        raise ValueError("segments are empty after clamping")
+    if total > MAX_AUDITION_S:
+        raise ValueError(f"segments total {total:.0f}s; audition maximum is {MAX_AUDITION_S:.0f}s")
+
+    fade_n = max(1, round(crossfade_ms / 1000.0 * sr))
+    fade_in = np.sin(np.linspace(0.0, np.pi / 2, fade_n, dtype=np.float32))[:, np.newaxis]
+    pieces: list[NDArray[np.float32]] = []
+    for index, (t0, t1) in enumerate(clean):
+        check_cancel(cancel_event)
+        piece = read_range(audio_path, round(t0 * sr), round(t1 * sr)).copy()
+        n = piece.shape[0]
+        edge = min(fade_n, n // 2)
+        piece[:edge] *= fade_in[:edge] ** 2  # raised cosine at outer edges
+        piece[n - edge :] *= (fade_in[:edge][::-1]) ** 2
+        if index > 0 and pieces and edge > 0:
+            # equal-power overlap with the previous tail
+            prev = pieces[-1]
+            overlap = min(edge, prev.shape[0])
+            head = piece[:overlap] / np.maximum(fade_in[:overlap] ** 2, 1e-6)  # undo, re-window
+            head = head * fade_in[:overlap]
+            tail = prev[-overlap:] / np.maximum((fade_in[:overlap][::-1]) ** 2, 1e-6)
+            tail = tail * fade_in[:overlap][::-1]
+            prev[-overlap:] = tail + head
+            piece = piece[overlap:]
+        pieces.append(piece)
+    rendered = np.concatenate(pieces, axis=0)
+    check_cancel(cancel_event)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(out_path, rendered, sr, subtype="FLOAT")
+    return {
+        "segments": [[t0, t1] for t0, t1 in clean],
+        "sr": sr,
+        "channels": rendered.shape[1],
+        "duration_s": rendered.shape[0] / sr,
     }

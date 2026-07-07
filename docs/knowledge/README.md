@@ -48,7 +48,7 @@ scripts/bm tool recent-activity                 # what changed lately
 scripts/bm orphans                              # notes with no relations (fix them)
 ```
 
-Claude Code sessions get the same operations as MCP tools automatically via the
+Agent sessions get the same operations as MCP tools automatically via the
 committed `.mcp.json` (server: `basic-memory`).
 
 ## Writing to it (both)
@@ -65,7 +65,7 @@ or via `scripts/bm tool write-note` / the MCP `write_note` tool. Conventions:
 - A wiki-link to a note that doesn't exist yet is fine (forward reference) — but run
   `scripts/bm orphans` occasionally and connect strays.
 - After editing files by hand, run `scripts/bm sync` (file edits reach the search index
-  only while a server is running; in Claude Code sessions the MCP server does this
+  only while a server is running; in agent sessions the MCP server does this
   automatically). The tool also normalizes frontmatter (adds `permalink:`) on sync —
   commit that churn, it's expected.
 

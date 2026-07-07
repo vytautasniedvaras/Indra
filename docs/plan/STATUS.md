@@ -7,7 +7,7 @@
 
 - **Current phase**: Phase 4 — FEATURE-COMPLETE, backlog empty, all CI green (backend +
   Linux Swift + macOS Swift). Awaiting Mac smoke test (SMOKE_TESTS items 6-7) and PR #1 merge.
-- **Branch**: `claude/fable-research-implementation-8z004i`
+- **Branch**: `feature/phases-0-4`
 - **Last updated**: 2026-07-07 (Phase 4 complete; final review pass on UI commits pending)
 
 ## STRATEGY NOTE (2026-07-06, user directive)
@@ -240,9 +240,9 @@ committed onset hairlines; merge-not-rebuild annotation store after commit so lo
   errors also surface as annotations: `GET /repos/.../check-runs/<job_id>/annotations`.
 - **Knowledge graph** (user request 2026-07-07): `docs/knowledge/` — markdown-native graph
   via Basic Memory (ADR 0014). Query with `scripts/bm` or the `basic-memory` MCP server
-  (.mcp.json). Root `CLAUDE.md` orients fresh sessions. Update the graph when landing
+  (.mcp.json). The root orientation doc points fresh sessions here. Update the graph when landing
   meaningful work (conventions: docs/knowledge/README.md).
-- `.claude/skills/` carries four vendored skills (mattpocock/skills @ 16a2a5c, MIT):
+- The agent skills dir carries four vendored skills (mattpocock/skills @ 16a2a5c, MIT):
   `tdd`, `codebase-design`, `code-review`, `diagnosing-bugs`. **Use `diagnosing-bugs` for
   Mac-side smoke-test failures** (its feedback-loop-first discipline is exactly the
   weaker-model workflow) and `code-review` for phase-PR review passes against

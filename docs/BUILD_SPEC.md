@@ -1,6 +1,6 @@
-# Indra — Build Prompt for Claude Code (Claude Fable, High Reasoning, Headless Cloud)
+# Indra — Build Prompt for the Coding Agent (High Reasoning, Headless Cloud)
 
-You are Claude Code, running headlessly in a cloud Linux container against a GitHub repository. Your job is to build **Indra**, described below, to the specification in this document. This document is authoritative: decisions already made appear as directives, not options. Do not relitigate them. Where genuine engineering choice remains, use judgment and record decisions as ADRs (see §10). Ask the user only when a listed decision boundary is crossed.
+You are a coding agent, running headlessly in a cloud Linux container against a GitHub repository. Your job is to build **Indra**, described below, to the specification in this document. This document is authoritative: decisions already made appear as directives, not options. Do not relitigate them. Where genuine engineering choice remains, use judgment and record decisions as ADRs (see §10). Ask the user only when a listed decision boundary is crossed.
 
 Work in commits that are small, well-named, and reviewable. Prefer many small PR-shaped commits over a few large ones. Verify continuously with the test suites specified in §8. When you cannot verify something in the headless environment (Metal, SwiftUI, AVAudioEngine — see §3), state that explicitly in the commit message and produce a precise smoke-test recipe for the user to run locally.
 
@@ -96,7 +96,7 @@ These MUST support chunked/streamed input (see §6 ingest pipeline) and MUST hon
 - **Backend**: Python analysis engine + local FastAPI server bound to `127.0.0.1`. Fully testable via pytest.
 - **Frontend**: native Swift app with a SwiftUI shell hosting an MTKView Metal renderer. Built and run by the user locally in Xcode.
 - The two talk over HTTP+SSE on loopback. This is authoritative.
-1. **Headless cloud dev environment realities** — what Claude Code CAN and CANNOT verify:
+1. **Headless cloud dev environment realities** — what the agent CAN and CANNOT verify:
    
    |Can verify headlessly                                                                                                                                             |Cannot verify headlessly (user smoke-tests locally)   |
    |------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
@@ -106,7 +106,7 @@ These MUST support chunked/streamed input (see §6 ingest pipeline) and MUST hon
    |GitHub Actions CI runs green                                                                                                                                      |Trackpad/pinch/Pencil gestures, ProMotion frame pacing|
    |ADRs, docs, `Package.swift`, `pyproject.toml`, lockfiles                                                                                                          |Xcode project builds / archives                       |
    
-   **Explicit contract**: on every meaningful change, Claude Code writes a “Local smoke test” note in the PR description with exact commands the user should run on their Mac (see §8).
+   **Explicit contract**: on every meaningful change, the agent writes a “Local smoke test” note in the PR description with exact commands the user should run on their Mac (see §8).
 1. **Minimal web UI is OPTIONAL and probably a waste of time.** Skip a browser-based product surface entirely. A tiny throwaway `dev/api_probe.html` — a static file that hits `/tiles` and renders a canvas — may be included **only** as a developer probe, in `dev/` with a big `THROWAWAY - not a product` banner at the top of the file. Do not invest in it. Do not maintain it as a first-class surface.
 
 -----
@@ -267,7 +267,7 @@ Two source trees:
 
 ```
 apple/
-├── IndraKit/                    ← Swift Package. Linux-buildable. Claude Code verifies here.
+├── IndraKit/                    ← Swift Package. Linux-buildable. The agent verifies here.
 │   ├── Package.swift            (swift-tools-version: 6.0)
 │   └── Sources/
 │       ├── IndraKitCore/        (models, state store, undo, tile-cache logic — pure Swift)
@@ -281,7 +281,7 @@ apple/
     └── Sources/                  (SwiftUI shell, MTKView renderer, AVAudioEngine, gestures)
 ```
 
-The Xcode app depends on `IndraKit` via SwiftPM local package reference. `IndraKitCore` and `IndraKitNet` have zero `import SwiftUI` / `import AVFoundation` / `import Metal`. `IndraKitAppleGlue` is not compiled on Linux (excluded from the CI build step; Claude Code runs `swift build --target IndraKitCore --target IndraKitNet`). 
+The Xcode app depends on `IndraKit` via SwiftPM local package reference. `IndraKitCore` and `IndraKitNet` have zero `import SwiftUI` / `import AVFoundation` / `import Metal`. `IndraKitAppleGlue` is not compiled on Linux (excluded from the CI build step; the agent runs `swift build --target IndraKitCore --target IndraKitNet`). 
 
 Enable Swift 6 language mode (`.swiftLanguageMode(.v6)`) in all targets. Use `swift-testing` (`import Testing`), not XCTest.  Pin CI Docker image to `swift:6.2-noble`.
 

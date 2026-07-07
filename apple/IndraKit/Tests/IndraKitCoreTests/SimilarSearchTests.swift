@@ -63,11 +63,13 @@ struct SimilarSearchTests {
         converted["segments"] = .array(segments)
         if case .object(var embedding)? = folderWide["embedding"] {
             embedding["nClusters"] = embedding.removeValue(forKey: "n_clusters")
+            embedding["seedXy"] = embedding.removeValue(forKey: "seed_xy")
             converted["embedding"] = .object(embedding)
         }
         let result = SimilarSearchResult(resultRef: converted)
         #expect(result?.segments[1].audioId == "b2")
         #expect(result?.embedding?.nClusters == 1)
+        #expect(result?.embedding?.seedXY == [0.05, -0.1])
     }
 
     @Test func singleFileSegmentsHaveNoAudioId() {

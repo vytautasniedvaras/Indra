@@ -62,6 +62,9 @@
         @ObservationIgnored private var auditionGeneration = 0
         @ObservationIgnored private var similarTask: Task<Void, Never>?
         @ObservationIgnored private var onsetTask: Task<Void, Never>?
+        /// Commit gets its OWN slot: a slider nudge must never cancel the
+        /// non-idempotent POST /onsets/commit mid-flight.
+        @ObservationIgnored private var commitTask: Task<Void, Never>?
         /// Ribbons per selection id, kept for undo/redo restore (§5.7).
         @ObservationIgnored private var magicSelections: [String: MagicSelection] = [:]
         /// Seed of the most recent magic select — the live tolerance slider
@@ -126,6 +129,8 @@
             auditionTask?.cancel()
             similarTask?.cancel()
             onsetTask?.cancel()
+            // commitTask deliberately NOT cancelled: POST /onsets/commit is
+            // non-idempotent; let an in-flight commit finish server-side.
         }
 
         // MARK: - Viewport changes (gestures + layout)
@@ -528,14 +533,21 @@
 
         /// Audition several search-result segments as one crossfaded sequence
         /// (the lasso's "contact sheet" — ux §3). The render is per-file, so
-        /// the file holding the most lassoed segments wins; any others are
-        /// counted in the status rather than silently dropped.
+        /// the file holding the most lassoed segments wins (ties: seed file,
+        /// then lexicographic — deterministic); others are counted in the
+        /// status rather than silently dropped.
         func auditionSegments(_ indices: [Int]) {
             guard let segments = similarResult?.segments else { return }
             let chosen = indices.filter { segments.indices.contains($0) }
             guard !chosen.isEmpty else { return }
             let groups = Dictionary(grouping: chosen) { segments[$0].audioId ?? file.id }
-            guard let (targetId, group) = groups.max(by: { $0.value.count < $1.value.count })
+            let seedId = file.id
+            guard
+                let (targetId, group) = groups.min(by: { a, b in
+                    if a.value.count != b.value.count { return a.value.count > b.value.count }
+                    if (a.key == seedId) != (b.key == seedId) { return a.key == seedId }
+                    return a.key < b.key
+                })
             else { return }
             let spans = group
                 .map { [segments[$0].t0, segments[$0].t1] }
@@ -687,14 +699,17 @@
             onsetDelta = nil
         }
 
-        /// Materialize the current pick as point annotations — ONE undo step
-        /// (the backend batches the create; ⌘Z removes them all).
+        /// Materialize the current pick as point annotations. Server-side this
+        /// is ONE undo step (undoable via the History panel / POST /undo);
+        /// the app's local ⌘Z stack is rebuilt by the reload and cannot
+        /// carry it — harness trade-off, documented in SMOKE_TESTS.
         func commitPickedOnsets() {
             guard let picked = pickedOnsets, !picked.onsets.t.isEmpty else { return }
-            onsetTask?.cancel()
+            guard commitTask == nil else { return }  // one commit at a time
             onsetStatus = "Committing \(picked.n) onsets…"
-            onsetTask = Task { [weak self] in
+            commitTask = Task { [weak self] in
                 await self?.runCommit(picked)
+                self?.commitTask = nil
             }
         }
 
@@ -718,8 +733,11 @@
                 let committed = try await client.onsetsCommit(
                     audioId: file.id, times: picked.onsets.t,
                     strengths: picked.onsets.strength)
-                onsetStatus = "Committed \(committed.created) onsets (one ⌘Z step)"
+                onsetStatus =
+                    "Committed \(committed.created) onsets (one undo step — History panel)"
                 onOnsetsCommitted?()
+            } catch is CancellationError {
+                onsetStatus = "Commit interrupted — Reload from server to verify"
             } catch {
                 onsetStatus = "Commit failed: \(error)"
             }

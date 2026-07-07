@@ -257,7 +257,6 @@
     @MainActor
     private struct OnsetControls: View {
         let canvas: SpectroCanvasModel
-        @State private var sensitivity = 0.07  // librosa's default delta
 
         var body: some View {
             HStack(spacing: 10) {
@@ -270,13 +269,12 @@
 
                     Text("Sensitivity")
                         .font(.caption)
+                    // Bound to the model (single source of truth): after
+                    // Hide → Show, slider and pick agree again.
                     Slider(
                         value: Binding(
-                            get: { sensitivity },
-                            set: { newValue in
-                                sensitivity = newValue
-                                canvas.repickOnsets(delta: newValue)
-                            }),
+                            get: { canvas.onsetDelta ?? 0.07 },  // PICK_DEFAULTS delta
+                            set: { canvas.repickOnsets(delta: $0) }),
                         in: 0.01...0.6
                     )
                     .frame(width: 140)
@@ -285,7 +283,7 @@
                     Button("Commit \(canvas.pickedOnsets?.n ?? 0) onsets") {
                         canvas.commitPickedOnsets()
                     }
-                    .help("Materialize as point annotations — one undo step")
+                    .help("Materialize as point annotations — one server undo step (History panel)")
                     .disabled((canvas.pickedOnsets?.n ?? 0) == 0)
                 }
 

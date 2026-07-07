@@ -178,6 +178,11 @@ user can handle compile fixes and verification mechanically. Mac-dependent items
 
 ## Notes for the next session
 
+- **Swift CI debugging loop**: raw Actions logs are unreachable from the dev container
+  (blob storage blocked). Every swift CI step goes through `scripts/annotate-swift.sh`;
+  on failure the full log lands on the `ci-logs-linux` / `ci-logs-macos` branches —
+  `git fetch origin ci-logs-linux && git show FETCH_HEAD:linux-<sha7>.log`. Compiler
+  errors also surface as annotations: `GET /repos/.../check-runs/<job_id>/annotations`.
 - **Knowledge graph** (user request 2026-07-07): `docs/knowledge/` — markdown-native graph
   via Basic Memory (ADR 0014). Query with `scripts/bm` or the `basic-memory` MCP server
   (.mcp.json). Root `CLAUDE.md` orients fresh sessions. Update the graph when landing

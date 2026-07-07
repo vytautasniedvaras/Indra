@@ -51,6 +51,8 @@ public enum ConstellationLayout {
         let durations = result.segments.prefix(count).map { max($0.t1 - $0.t0, 0) }
         let maxDuration = max(durations.max() ?? 0, 1e-9)
         let inner = 1 - 2 * padding
+        let (xLo, xHi) = (xs.min() ?? 0, xs.max() ?? 0)
+        let (yLo, yHi) = (ys.min() ?? 0, ys.max() ?? 0)
 
         func normalize(_ value: Double, min lo: Double, max hi: Double) -> Double {
             hi - lo > 1e-12 ? padding + (value - lo) / (hi - lo) * inner : 0.5
@@ -65,13 +67,34 @@ public enum ConstellationLayout {
             dots.append(
                 Dot(
                     segmentIndex: index,
-                    x: normalize(xs[index], min: xs.min() ?? 0, max: xs.max() ?? 0),
-                    y: normalize(ys[index], min: ys.min() ?? 0, max: ys.max() ?? 0),
+                    x: normalize(xs[index], min: xLo, max: xHi),
+                    y: normalize(ys[index], min: yLo, max: yHi),
                     radius: minRadius + (maxRadius - minRadius) * scaled,
                     cluster: cluster,
                     closeness: max(0, 1 - result.segments[index].distance)))
         }
         return dots
+    }
+
+    /// Nearest dot whose (scaled) disc contains the point, in a width×height
+    /// pixel canvas; `minHitRadius` keeps tiny dots clickable. Pure geometry —
+    /// views pass their pixel size and draw-space point.
+    public static func hitTest(
+        dots: [Dot], x: Double, y: Double, width: Double, height: Double,
+        minHitRadius: Double = 6
+    ) -> Int? {
+        let side = min(width, height)
+        var best: (index: Int, distance: Double)?
+        for dot in dots {
+            let dx = x - dot.x * width
+            let dy = y - dot.y * height
+            let distance = (dx * dx + dy * dy).squareRoot()
+            let hitRadius = max(dot.radius * side, minHitRadius)
+            if distance <= hitRadius, distance < (best?.distance ?? .infinity) {
+                best = (dot.segmentIndex, distance)
+            }
+        }
+        return best?.index
     }
 
     /// Stable, well-separated hue per cluster label (golden-angle walk).

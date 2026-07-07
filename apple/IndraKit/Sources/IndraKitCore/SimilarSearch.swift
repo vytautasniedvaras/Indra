@@ -70,7 +70,7 @@ public struct SimilarSearchResult: Sendable, Equatable {
             else { continue }
             segments.append(
                 SimilarSegment(
-                    audioId: (fields["audioId"] ?? fields["audio_id"])?.stringValue,
+                    audioId: fields.wireValue("audioId", "audio_id")?.stringValue,
                     t0: t0, t1: t1, distance: distance))
         }
         var scanned: [String] = []
@@ -92,13 +92,43 @@ public struct SimilarSearchResult: Sendable, Equatable {
             if case .array(let rawCluster)? = rawEmbedding["cluster"] {
                 cluster = rawCluster.compactMap { $0.numberValue.map { Int($0) } }
             }
-            let nClusters = (rawEmbedding["nClusters"] ?? rawEmbedding["n_clusters"])?
+            let nClusters = rawEmbedding.wireValue("nClusters", "n_clusters")?
                 .numberValue.map { Int($0) }
             embedding = SegmentEmbedding(
                 xy: xy, cluster: cluster, nClusters: nClusters ?? Set(cluster).count)
         }
         self.init(
             segments: segments, threshold: threshold, scanned: scanned, embedding: embedding)
+    }
+}
+
+/// Decoded audition job result_ref (docs/api.md POST /audition): where the
+/// rendered scratch WAV landed. Path is relative to the project root.
+public struct AuditionResult: Sendable, Equatable {
+    public var auditionId: String
+    public var wavPath: String
+    public var durationS: Double?
+
+    public init(auditionId: String, wavPath: String, durationS: Double? = nil) {
+        self.auditionId = auditionId
+        self.wavPath = wavPath
+        self.durationS = durationS
+    }
+
+    /// Nil when the payload is not an audition result.
+    public init?(resultRef: [String: JSONValue]) {
+        guard let id = resultRef.wireValue("auditionId", "audition_id")?.stringValue,
+            let path = resultRef.wireValue("wavPath", "wav_path")?.stringValue
+        else { return nil }
+        self.init(
+            auditionId: id, wavPath: path,
+            durationS: resultRef.wireValue("durationS", "duration_s")?.numberValue)
+    }
+
+    /// Absolute filesystem path, resolving a relative wav_path against the
+    /// project root (the backend and app share a machine — ADR 0008).
+    public func absolutePath(projectRoot: String) -> String {
+        wavPath.hasPrefix("/") ? wavPath : projectRoot + "/" + wavPath
     }
 }
 

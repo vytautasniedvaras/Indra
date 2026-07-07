@@ -53,17 +53,23 @@ public struct Annotation: Codable, Sendable, Equatable, Identifiable {
 public struct EditorState: Codable, Sendable, Equatable {
     public var activeAudioId: String?
     public var selection: Selection?
+    /// The active magic selection's cache key (§5.7: selection is undoable —
+    /// this is the flagship selection). Ribbon geometry itself is derived
+    /// data, re-fetchable from the analysis cache by this id.
+    public var magicSelectionId: String?
     public var annotations: [Annotation]
     public var lensesEnabled: Set<String>
 
     public init(
         activeAudioId: String? = nil,
         selection: Selection? = nil,
+        magicSelectionId: String? = nil,
         annotations: [Annotation] = [],
         lensesEnabled: Set<String> = []
     ) {
         self.activeAudioId = activeAudioId
         self.selection = selection
+        self.magicSelectionId = magicSelectionId
         self.annotations = annotations
         self.lensesEnabled = lensesEnabled
     }
@@ -72,6 +78,7 @@ public struct EditorState: Codable, Sendable, Equatable {
 public enum EditorAction: Sendable, Equatable {
     case setActiveAudio(String?)
     case setSelection(Selection?)
+    case setMagicSelection(String?)
     case addAnnotation(Annotation)
     case updateAnnotation(Annotation)
     case deleteAnnotation(id: String)
@@ -82,6 +89,7 @@ public enum EditorAction: Sendable, Equatable {
         switch self {
         case .setActiveAudio: "Switch file"
         case .setSelection(let selection): selection == nil ? "Clear selection" : "Change selection"
+        case .setMagicSelection(let id): id == nil ? "Clear magic selection" : "Magic select"
         case .addAnnotation: "Add annotation"
         case .updateAnnotation: "Edit annotation"
         case .deleteAnnotation: "Delete annotation"
@@ -98,9 +106,13 @@ public func reduce(_ state: EditorState, _ action: EditorAction) -> EditorState 
         guard audioId != state.activeAudioId else { return state }
         next.activeAudioId = audioId
         next.selection = nil
+        next.magicSelectionId = nil
     case .setSelection(let selection):
         guard selection != state.selection else { return state }
         next.selection = selection
+    case .setMagicSelection(let id):
+        guard id != state.magicSelectionId else { return state }
+        next.magicSelectionId = id
     case .addAnnotation(let annotation):
         guard !state.annotations.contains(where: { $0.id == annotation.id }) else { return state }
         next.annotations.append(annotation)

@@ -58,6 +58,17 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 }
 
+extension [String: JSONValue] {
+    /// Look a wire field up under BOTH key spellings: snake_case as sent by
+    /// the backend, and camelCase as produced when the payload was decoded
+    /// with IndraJSON's convertFromSnakeCase — which rewrites DICTIONARY keys
+    /// on some Foundation decode paths and not others. Every result_ref
+    /// consumer must use this instead of rediscovering the quirk.
+    public func wireValue(_ camel: String, _ snake: String) -> JSONValue? {
+        self[camel] ?? self[snake]
+    }
+}
+
 /// Shared JSON coding configuration matching the backend's snake_case wire format.
 public enum IndraJSON {
     public static func decoder() -> JSONDecoder {

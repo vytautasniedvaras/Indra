@@ -20,6 +20,8 @@
         var onAuditionReady: (URL) -> Void = { _ in }
         /// EQ quick-preview engage/clear while an audition renders (§5.5).
         var onPreviewBand: (Double?, Double?) -> Void = { _, _ in }
+        /// Start the transport if idle so the quick preview is audible.
+        var onPreviewPlay: () -> Void = {}
 
         @Environment(AppModel.self) private var model
         @State private var canvas: SpectroCanvasModel?
@@ -72,6 +74,10 @@
             .onChange(of: model.editor.lensesEnabled) { _, enabled in
                 canvas?.setEnabledLanes(enabled.sorted())
             }
+            .onChange(of: model.editor.magicSelectionId) { _, id in
+                // ⌘Z/⇧⌘Z of the magic selection (§5.7) lands here.
+                canvas?.syncMagicSelection(to: id)
+            }
             .onDisappear {
                 canvas?.cancelAllWork()
             }
@@ -79,6 +85,7 @@
 
         private func setUpCanvas() {
             guard let client = model.backend.client else { return }
+            canvas?.cancelAllWork()  // superseded canvas must not keep fetching
             let next = SpectroCanvasModel(file: file, spec: spec, client: client)
             // Selection drags coalesce into ONE undo step (§5.7) through
             // AppModel's DocumentStore passthroughs.
@@ -94,6 +101,10 @@
             next.onSeek = onSeek
             next.onAuditionReady = onAuditionReady
             next.onPreviewBand = onPreviewBand
+            next.onPreviewPlay = onPreviewPlay
+            next.onMagicSelectionChanged = { [weak model] id in
+                model?.dispatch(.setMagicSelection(id))
+            }
             next.projectRoot = model.projectRoot
             next.setEnabledLanes(model.editor.lensesEnabled.sorted())
             canvas = next

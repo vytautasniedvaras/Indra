@@ -70,7 +70,10 @@
                                 playheadTime: playback.currentTime,
                                 onSeek: { playback.seek(to: $0) },
                                 onAuditionReady: { playback.playScratch(url: $0) },
-                                onPreviewBand: { playback.setPreviewBand(f0: $0, f1: $1) })
+                                onPreviewBand: { playback.setPreviewBand(f0: $0, f1: $1) },
+                                onPreviewPlay: {
+                                    if !playback.isPlaying { playback.play() }
+                                })
                         } else {
                             ZStack {
                                 Color.black.opacity(0.05)

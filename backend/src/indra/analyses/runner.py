@@ -101,12 +101,34 @@ def run_analysis(
             **selection,
         }
     elif kind == "select_similar":
-        from indra.analyses.select import similar_segments
+        from indra.analyses.select import similar_segments, similar_segments_multi
         from indra.storage.features import read_feature
 
         spec_path = paths.spec_zarr(audio_id)
         if not spec_path.exists():
             raise ValueError("no spectrogram pyramid for this file; re-import first")
+        targets = params.get("targets")
+        if targets is not None:
+            # Folder-wide search: scan the listed files ("all" = every import).
+            conn2 = open_db(paths.db)
+            try:
+                if targets == "all":
+                    rows2 = conn2.execute("SELECT id FROM audio_files ORDER BY id").fetchall()
+                    target_ids = [str(r["id"]) for r in rows2]
+                else:
+                    target_ids = [str(t) for t in targets]
+            finally:
+                conn2.close()
+            select_params = {**(params.get("select") or {}), "embed": params.get("embed", False)}
+            result = similar_segments_multi(
+                spec_path,
+                params.get("seed") or {},
+                [(tid, paths.spec_zarr(tid)) for tid in target_ids],
+                select_params,
+                cancel_event,
+            )
+            report(progress_queue, 1.0, "similar segments found")
+            return {"kind": kind, "audio_id": audio_id, **result}
         curves: dict[str, Any] = {}
         conn2 = open_db(paths.db)
         try:

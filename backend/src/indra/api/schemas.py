@@ -203,6 +203,11 @@ class SelectSimilarRequest(BaseModel):
     threshold: float = 0.4
     min_segment_s: float = 0.5
     use_features: list[str] = Field(default_factory=list)
+    # Folder-wide search: "all" scans every imported file, or pass audio ids.
+    # None = seed file only. use_features applies to single-file search only.
+    targets: Literal["all"] | list[str] | None = None
+    # Attach a cluster map (2-D coords + hierarchical labels) to the results.
+    embed: bool = False
 
 
 class OnsetRepickRequest(BaseModel):

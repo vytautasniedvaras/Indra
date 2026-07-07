@@ -76,6 +76,29 @@ public enum ConstellationLayout {
         return dots
     }
 
+    /// Segment indices of dots whose CENTERS fall inside the lasso polygon
+    /// (unit coordinates, [x, y] pairs, implicitly closed). Standard
+    /// ray-casting; fewer than 3 vertices selects nothing.
+    public static func dotsInside(polygon: [[Double]], dots: [Dot]) -> [Int] {
+        guard polygon.count >= 3 else { return [] }
+        func contains(_ x: Double, _ y: Double) -> Bool {
+            var inside = false
+            var j = polygon.count - 1
+            for i in 0..<polygon.count {
+                let (xi, yi) = (polygon[i][0], polygon[i][1])
+                let (xj, yj) = (polygon[j][0], polygon[j][1])
+                if (yi > y) != (yj > y),
+                    x < (xj - xi) * (y - yi) / (yj - yi) + xi
+                {
+                    inside.toggle()
+                }
+                j = i
+            }
+            return inside
+        }
+        return dots.filter { contains($0.x, $0.y) }.map(\.segmentIndex)
+    }
+
     /// Nearest dot whose (scaled) disc contains the point, in a width×height
     /// pixel canvas; `minHitRadius` keeps tiny dots clickable. Pure geometry —
     /// views pass their pixel size and draw-space point.

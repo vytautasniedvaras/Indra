@@ -64,7 +64,11 @@ message is fine). Items are grouped by phase and removed once confirmed.
      duration, color = cluster, brightness = closeness) beside per-file match pills.
      Clicking any dot or pill renders and plays that segment — including matches in the
      OTHER file. Repeats of the same sound should share one color; unrelated matches (if
-     any) get different colors. “Clear matches” removes the panel.
+     any) get different colors. “Clear matches” removes the panel. A white ringed star
+     marks the seed among its matches; the Distance slider thins the field live without
+     re-searching. **Lasso**: drag a loop around several dots — they highlight and a
+     “Play N as sequence” button appears (crossfaded contact sheet; per-file render, the
+     majority file wins and the status names skipped ones).
    - **Audition** (§5.5): drag a box (or magic-select) → “Audition”. Immediately the main
      playback (if playing) narrows to the band — that's the EQ quick preview; transport
      shows “EQ preview engaged (render pending)”. Within a couple of seconds the exact

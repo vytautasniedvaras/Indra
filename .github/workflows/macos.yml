@@ -23,7 +23,7 @@ jobs:
           key: macos-swiftpm-${{ hashFiles('apple/**/Package.swift') }}
       - name: Test IndraKit
         working-directory: apple/IndraKit
-        run: swift test --parallel
+        run: ../../scripts/annotate-swift.sh swift test --parallel
       - name: Build IndraApp (full macOS app — SwiftUI/Metal/AVFoundation)
         working-directory: apple/IndraApp
-        run: swift build
+        run: ../../scripts/annotate-swift.sh swift build

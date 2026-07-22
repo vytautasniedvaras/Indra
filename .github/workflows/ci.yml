@@ -1,0 +1,66 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write # indrakit publishes failure logs to the ci-logs-linux branch
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install uv
+      - run: uv pip install --system -e ".[dev]"
+      - run: ruff check src tests && ruff format --check src tests
+      - run: mypy src/indra
+      - run: pytest -q --cov=indra --cov-fail-under=80
+      - name: License gate
+        run: |
+          pip-licenses --format=json --with-license-file --no-license-path \
+            --output-file=licenses.json
+          python scripts/check_licenses.py licenses.json
+
+  indrakit:
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check IndraKit exists
+        id: kit
+        run: test -f apple/IndraKit/Package.swift && echo "present=true" >> "$GITHUB_OUTPUT" || echo "present=false" >> "$GITHUB_OUTPUT"
+      - name: Cache .build
+        if: steps.kit.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: apple/IndraKit/.build
+          key: swiftpm-${{ hashFiles('apple/IndraKit/Package.resolved', 'apple/IndraKit/Package.swift') }}
+      - name: Build kit targets
+        if: steps.kit.outputs.present == 'true'
+        working-directory: apple/IndraKit
+        run: |
+          ../../scripts/annotate-swift.sh swift build --target IndraKitCore
+          ../../scripts/annotate-swift.sh swift build --target IndraKitNet
+      - name: Test
+        if: steps.kit.outputs.present == 'true'
+        working-directory: apple/IndraKit
+        run: ../../scripts/annotate-swift.sh swift test --parallel
+      - name: Build app package (Linux stub, structural check)
+        if: steps.kit.outputs.present == 'true'
+        working-directory: apple/IndraApp
+        run: ../../scripts/annotate-swift.sh swift build
+      - name: Publish failure log to ci-logs-linux branch
+        if: failure()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          [ -f /tmp/swift-ci.log ] || exit 0
+          dir=$(mktemp -d) && cd "$dir" && git init -q
+          tail -c 400000 /tmp/swift-ci.log > "linux-${GITHUB_SHA:0:7}.log"
+          git add . && git -c user.email=ci@indra -c user.name=ci commit -qm "linux log ${GITHUB_SHA:0:7}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:refs/heads/ci-logs-linux

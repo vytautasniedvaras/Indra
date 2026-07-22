@@ -1,0 +1,7 @@
+# 0012. IndraApp ships as a SwiftPM executable package, not an .xcodeproj (for now)
+Date: 2026-07-06
+Status: accepted
+Context: BUILD_SPEC §5.1 sketches apple/IndraApp as an Xcode project. Xcode project files are an opaque serialized format that cannot be authored or verified in the headless build environment; a hand-written pbxproj would likely be broken on first open, and every structural change would repeat the risk. Xcode 16 opens a Package.swift directly and can run a SwiftUI @main executable target on macOS (bare-executable app: windows and menus work; bundle niceties like app icons and entitlements are absent).
+Decision: apple/IndraApp is a SwiftPM package with an executable target depending on IndraKit by local path. All sources are #if os(macOS) && canImport(SwiftUI) gated with a stub main on other platforms, so Linux CI validates the package structure and dependency graph even though SwiftUI never compiles there. The user runs it by opening Package.swift in Xcode and pressing run.
+Consequences: Zero xcodeproj maintenance in the headless loop; CI catches structural breakage; graduating to a real Xcode project (needed for app icon, entitlements, sandboxing, iPad target, archiving) is a later, user-assisted step — likely when Phase 4 polish or distribution starts.
+Alternatives considered: hand-authored pbxproj (fragile, unverifiable); XcodeGen/Tuist generation (new tooling dependency the user would also need); deferring the app entirely (loses the Phase 3 DoD harness view).

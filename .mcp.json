@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "basic-memory": {
+      "command": "bash",
+      "args": ["scripts/bm", "mcp"]
+    }
+  }
+}

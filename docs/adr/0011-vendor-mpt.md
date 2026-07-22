@@ -1,0 +1,7 @@
+# 0011. Vendor the Music Perception Toolbox instead of pip-installing from git
+Date: 2026-07-06
+Status: accepted
+Context: BUILD_SPEC §2 prescribes `pip install "git+https://github.com/andymilne/Music-Perception-Toolbox.git@12a006c...#subdirectory=python"`. That install fails with both pip and uv (verified 2026-07-06): the package's pyproject.toml declares `readme = {file = "../README.md"}`, which points outside the `python/` package root, and modern setuptools rejects it (`DistutilsOptionError: Cannot access ... outside ...`). Upstream HEAD (d1ef797) has the same defect, so no fixable commit exists to pin.
+Decision: Vendor `python/mpt/` (108 KB, 9 pure-Python modules, relative imports only, deps numpy+scipy already present) into `backend/src/indra/_vendor/mpt/` at commit `12a006c32f825c406ca2f41a5fcd5870a78c4a56`, unmodified, with upstream LICENSE (MIT) and a VENDOR_README.md recording source URL, SHA, and update procedure. Import as `from indra._vendor import mpt`.
+Consequences: Reproducible installs with no packaging hacks; MPT updates become a manual copy (acceptable — we pinned by SHA anyway); golden-value tests in tests/test_mpt_frames.py guard behavior across updates; consistent with the vendoring already mandated for panns/beats.
+Alternatives considered: install-script workaround cloning + patching before pip install (breaks one-command install and editable CI installs); committing a locally-built wheel (binary blob in git); waiting on an upstream fix (unbounded delay; upstream HEAD still broken).

@@ -1,0 +1,42 @@
+name: macOS
+# Real-platform verification of the Swift code (SwiftUI, MetalKit, AVFoundation) —
+# the linux `indrakit` job only covers IndraKitCore/Net and the Linux app stub.
+# Runs only when apple/ changes: macOS runners bill at 10x minutes.
+on:
+  push:
+    branches: [main]
+    paths: ["apple/**", ".github/workflows/macos.yml", "scripts/annotate-swift.sh"]
+  pull_request:
+    paths: ["apple/**", ".github/workflows/macos.yml", "scripts/annotate-swift.sh"]
+
+permissions:
+  contents: write # publish failure logs to the ci-logs branch
+
+jobs:
+  apple:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache .build
+        uses: actions/cache@v4
+        with:
+          path: |
+            apple/IndraKit/.build
+            apple/IndraApp/.build
+          key: macos-swiftpm-${{ hashFiles('apple/**/Package.swift') }}
+      - name: Test IndraKit
+        working-directory: apple/IndraKit
+        run: ../../scripts/annotate-swift.sh swift test --parallel
+      - name: Build IndraApp (full macOS app — SwiftUI/Metal/AVFoundation)
+        working-directory: apple/IndraApp
+        run: ../../scripts/annotate-swift.sh swift build
+      - name: Publish failure log to ci-logs branch
+        if: failure()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          [ -f /tmp/swift-ci.log ] || exit 0
+          dir=$(mktemp -d) && cd "$dir" && git init -q
+          tail -c 400000 /tmp/swift-ci.log > "macos-${GITHUB_SHA:0:7}.log"
+          git add . && git -c user.email=ci@indra -c user.name=ci commit -qm "macos log ${GITHUB_SHA:0:7}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:refs/heads/ci-logs-macos
